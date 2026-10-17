@@ -1,0 +1,17 @@
+{
+  "name": "gestao-familia-servidor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor do app da família: API, login e coletor.",
+  "scripts": {
+    "start": "node src/servidor.mjs"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.9.11",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

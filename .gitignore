@@ -1,0 +1,25 @@
+# Credenciais — nunca versionar
+.env
+.env.*
+*.env
+!*.env.example
+
+# Saída da validação: contém extrato bancário real
+validacao/saida/
+
+node_modules/
+
+# Backups do banco (cifrados, mas ainda são seus dados financeiros)
+servidor/backup/
+*.sql.gz.enc
+*.sql.gz
+*.dump
+
+# Pasta que a CLI da Vercel cria ao vincular o projeto (ids da sua conta)
+.vercel/
+
+# Cópias isoladas de trabalho dos agentes (git worktree) — nunca entram no repositório
+.claude/worktrees/
+
+.DS_Store
+*.log

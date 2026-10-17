@@ -1,0 +1,16 @@
+# O que NÃO entra na imagem do app. O contexto do build é a raiz do repositório
+# (servidor/docker-compose.yml usa `context: ..`), então sem isto o Docker enviaria
+# até as credenciais e o extrato de quem rodou o script de validação nesta máquina.
+.git
+node_modules
+**/node_modules
+.env
+**/.env
+*.env
+!*.env.example
+validacao/saida
+servidor/backup
+servidor/certs
+docs
+.claude
+**/testes

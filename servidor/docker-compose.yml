@@ -1,0 +1,68 @@
+# Stack do app da família. TUDO isolado: rede, volume e container só deste
+# projeto — não compartilha banco, rede nem volume com mais nada da máquina.
+#
+# O Postgres NÃO publica porta: quem precisa falar com ele entra pela rede do
+# compose (`docker compose exec`) ou é o próprio app, que roda aqui dentro.
+
+name: gestao-familia
+
+services:
+  banco:
+    image: postgres:16-alpine
+    container_name: gf-banco
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gestao_familia}
+      POSTGRES_USER: ${POSTGRES_USER:-gestao}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no servidor/.env}
+      # Português do Brasil para ordenação e mensagens
+      LANG: pt_BR.UTF-8
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - dados:/var/lib/postgresql/data
+      - ./backup:/backup
+    networks:
+      - rede
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gestao} -d ${POSTGRES_DB:-gestao_familia}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Sem `ports`: nada exposto na máquina. É de propósito.
+
+  app:
+    build:
+      context: ..
+      dockerfile: servidor/Dockerfile
+    container_name: gf-app
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: banco
+      POSTGRES_DB: ${POSTGRES_DB:-gestao_familia}
+      POSTGRES_USER: ${POSTGRES_USER:-gestao}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      CHAVE_MESTRA: ${CHAVE_MESTRA:?}
+      SEGREDO_SESSAO: ${SEGREDO_SESSAO:-}
+      PORTA: 3200
+      URL_PUBLICA: ${URL_PUBLICA:-}
+      NOME_DA_FAMILIA: ${NOME_DA_FAMILIA:-}
+    # Só no localhost: quem expõe para a internet é o Caddy, com HTTPS.
+    ports:
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./backup:/backup
+    networks:
+      - rede
+
+volumes:
+  dados:
+    name: gf-dados
+
+networks:
+  rede:
+    name: gf-rede

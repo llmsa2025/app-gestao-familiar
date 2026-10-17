@@ -1,0 +1,11 @@
+-- 008 — a coleta acha o lançamento pelo id da transação na Pluggy.
+--
+-- Até 24/09/2026 a identidade era só o hash (conta + data/hora + valor +
+-- descrição). Quando o banco mudava a data, a hora ou o texto entre duas coletas,
+-- o lançamento era gravado de novo e a versão velha ficava (358 transações em
+-- dobro). O coletor agora procura primeiro pelo `id` da Pluggy, que não muda, e
+-- atualiza no lugar. Este índice deixa essa procura rápida.
+--
+-- Não é único de propósito: as cópias que já existem saem pelo script
+-- scripts/juntar-copias-da-pluggy.mjs, que leva a categoria e o pagamento junto.
+CREATE INDEX IF NOT EXISTS lancamentos_pluggy_id ON lancamentos (conta_id, (bruto->>'id'));

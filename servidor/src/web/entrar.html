@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entrar — Gestão Família</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<link rel="apple-touch-icon" href="/icone-180.png">
+<link rel="stylesheet" href="/entrar.css">
+</head>
+<body>
+  <main class="caixa">
+    <p class="marca">Gestão Família</p>
+    <h1>{{NOME_DA_FAMILIA}}</h1>
+    <p class="sub">As contas da casa, num lugar só.</p>
+
+    <form id="form" novalidate>
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+
+      <label for="senha">Senha</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+
+      <button type="submit" id="botao">Entrar</button>
+      <p class="erro" id="erro" hidden role="alert"></p>
+    </form>
+  </main>
+
+<script>
+const form = document.getElementById("form");
+const erro = document.getElementById("erro");
+const botao = document.getElementById("botao");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  erro.hidden = true;
+  botao.disabled = true;
+  botao.textContent = "Entrando…";
+  try {
+    const r = await fetch("/entrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: document.getElementById("email").value, senha: document.getElementById("senha").value }),
+    });
+    const corpo = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(corpo.erro || "Não consegui entrar.");
+    location.href = "/";
+  } catch (e) {
+    erro.textContent = e.message;
+    erro.hidden = false;
+    botao.disabled = false;
+    botao.textContent = "Entrar";
+    document.getElementById("senha").select();
+  }
+});
+</script>
+</body>
+</html>

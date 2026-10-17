@@ -1,0 +1,24 @@
+{
+  "name": "app-gestao-familiar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gestão financeira da família — coletor da Pluggy (Open Finance), telas e testes.",
+  "type": "module",
+  "scripts": {
+    "coletar": "node validacao/validar.mjs",
+    "tela": "node validacao/tela.mjs",
+    "test": "node validacao/testes/rodar.mjs",
+    "test:servidor": "node servidor/testes/servidor.mjs",
+    "test:contrato": "node servidor/testes/contrato.mjs",
+    "test:vercel": "node servidor/testes/corpo-e-tls.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "workspaces": [
+    "servidor"
+  ]
+}

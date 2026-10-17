@@ -1,0 +1,14 @@
+# O que NÃO sobe para a Vercel. O deploy pelo Git só leva o que está commitado, mas
+# o deploy pela linha de comando leva a pasta inteira — e esta pasta, numa máquina de
+# trabalho, tem extrato bancário real e segredos. Aqui fica a trava para os dois casos.
+validacao/saida
+servidor/backup
+servidor/.env
+.env
+.env.*
+*.env
+!*.env.example
+.claude
+docs
+**/testes
+node_modules
