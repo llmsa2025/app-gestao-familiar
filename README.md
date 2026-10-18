@@ -100,3 +100,8 @@ CLAUDE.md             instruções para o Claude Code neste repositório
 Este é um projeto pessoal, **sem garantia**, que lê dados financeiros sensíveis. A Pluggy é um
 serviço de terceiros, gratuito e sem contrato de nível de serviço. Confira os números com o
 extrato do banco, faça backup e use por sua conta e risco.
+
+## Licença
+
+[MIT](LICENSE): você pode usar, copiar e modificar à vontade, mantendo o aviso de autoria. O código
+vem sem garantia (veja o aviso acima).
