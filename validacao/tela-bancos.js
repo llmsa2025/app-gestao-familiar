@@ -60,7 +60,7 @@
     if (!noServidor) {
       $("bancos-lista").innerHTML =
         '<p class="vazio">Esta aba existe no app instalado no servidor, onde a credencial fica guardada em segurança. ' +
-        "Numa página publicada, quem tivesse o link leria o segredo dentro do HTML — por isso ela não funciona aqui.</p>";
+        "Numa página publicada, quem tivesse o link leria o segredo dentro do HTML. Por isso ela não funciona aqui.</p>";
       return;
     }
 
@@ -68,7 +68,7 @@
     const formulario = estado.adicionando
       ? `<form class="bloco form-nova-conta" id="form-nova-conta">
           <h3>Nova conta da Pluggy</h3>
-          <p class="suave pequeno">Cada pessoa tem a sua conta no Meu Pluggy e a sua aplicação no Dashboard da Pluggy — o plano gratuito só aceita contas do próprio titular, até 5 conexões.</p>
+          <p class="suave pequeno">Cada pessoa tem a sua conta no Meu Pluggy e a sua aplicação no Dashboard da Pluggy. O plano gratuito só aceita contas do próprio titular, até 5 conexões.</p>
           <div class="form-grade">
             <div class="campo-grupo"><label for="nova-pessoa">De quem é esta conta</label>
               <select class="campo" id="nova-pessoa" name="pessoa_id">
@@ -307,7 +307,7 @@
     estado.coletando = true;
     const botao = $("bancos-coletar");
     if (botao) { botao.disabled = true; botao.textContent = "Puxando…"; }
-    aviso("Puxando os dados dos bancos. Na primeira vez leva alguns minutos — pode deixar a tela aberta.");
+    aviso("Puxando os dados dos bancos. Na primeira vez leva alguns minutos, pode deixar a tela aberta.");
     try {
       await api("/api/coletar", { method: "POST" });
       await acompanhar();
@@ -332,7 +332,7 @@
       // Deu certo: a tela ainda mostra os números de antes da coleta, porque a
       // página foi montada no servidor. Recarrega sozinha — com um respiro para
       // dar tempo de ler o que entrou.
-      aviso(linhas.join(" · ") + " — atualizando a tela…");
+      aviso(linhas.join(" · ") + ". Atualizando a tela…");
       setTimeout(() => location.reload(), 2500);
       return;
     }

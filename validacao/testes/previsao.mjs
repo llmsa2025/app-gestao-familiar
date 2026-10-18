@@ -63,6 +63,42 @@ console.log("Previsão de caixa\n");
 }
 
 // ---------------------------------------------------------------------------
+// 1b. Item de projeto: prevê só o que FALTA pagar (o que foi vinculado já está no extrato)
+// ---------------------------------------------------------------------------
+{
+  const { navegador, pagina, erros } = await abrir(caminho, {}, "fluxo", { agora });
+  const proj = (itens) => [{ id: "p1", nome: "Viagem", itens }];
+  const item = (data, extra = {}) => ({ id: "i", descricao: "Hotel", valor: 1000, data, pago: false, ...extra });
+  const chamar = (de, ate, itens) => pagina.evaluate(([d, a, p]) => window.PREVISAO.entre(d, a, { recorrentes: [], dividas: null, projetos: p, pessoa: "" }), [de, ate, proj(itens)]);
+  const so = async (itens, d = "2026-09-20", a = "2026-12-31") => (await chamar(d, a, itens)).map((p) => `${p.data}${p.atrasadoDesde ? "(venceu " + p.atrasadoDesde + ")" : ""}=${p.valor}`);
+
+  const a1 = await so([item("2026-10-10")]);
+  conferir("Item sem `restante` (projeto que não passou pela tela): prevê o valor inteiro, como antes", a1.join() === "2026-10-10=1000", a1.join(" · "));
+  const a2 = await so([item("2026-10-10", { restante: 400, vinculado: 600 })]);
+  conferir("Com vínculo parcial: prevê só o que falta (400)", a2.join() === "2026-10-10=400", a2.join(" · "));
+  const a2b = await chamar("2026-09-20", "2026-12-31", [item("2026-10-10", { restante: 400, vinculado: 600 })]);
+  conferir("…e a fonte diz quanto falta de quanto", /falta pagar R\$\s*400,00 de R\$\s*1\.000,00/.test(a2b[0].fonte), a2b[0].fonte);
+  const a3 = await so([item("2026-10-10", { restante: 0, vinculado: 1000 })]);
+  conferir("Item coberto pelo vínculo (restante 0) não é previsto", a3.length === 0, a3.join(" · "));
+  const a4 = await so([item("2026-10-10", { pago: true, restante: 500 })]);
+  conferir("Item quitado nunca é previsto, mesmo com restante", a4.length === 0, a4.join(" · "));
+  const a5 = await so([item("2026-12-31", { restante: 1000 })], "2026-09-20", "2026-10-31");
+  conferir("Depois do fim do período não entra", a5.length === 0, a5.join(" · "));
+
+  // Item com data vencida: só entra se já tem lançamento vinculado (o que falta é dívida conhecida)
+  const v1 = await so([item("2026-09-10", { restante: 300, vinculado: 700 })]);
+  conferir("Vencido com vínculo parcial: o que falta (300) entra no 1º dia da previsão, com a data original", v1.join() === "2026-09-20(venceu 2026-09-10)=300", v1.join(" · "));
+  const v2 = await so([item("2026-09-10", { restante: 1000, vinculado: 0 })]);
+  conferir("Vencido e SEM vínculo: fica de fora (pode ter sido pago e só não vinculado; prever de novo seria o dobro)", v2.length === 0, v2.join(" · "));
+  const v3 = await so([item("2026-09-10", { restante: 300, vinculado: 700 })], "2026-10-01", "2026-12-31");
+  conferir("Janela que começa depois de amanhã não repete o atraso (ele já está no saldo anterior)", v3.length === 0, v3.join(" · "));
+  const v4 = await so([item("2026-09-19", { restante: 1000 })]);
+  conferir("Item com a data de hoje e sem vínculo: também fica de fora", v4.length === 0, v4.join(" · "));
+  conferir("Nenhum erro de JavaScript (projetos)", erros.length === 0, erros.join(" | "));
+  await navegador.close();
+}
+
+// ---------------------------------------------------------------------------
 // 2. No Fluxo de verdade: a conta atrasada pesa no saldo do fim do mês
 // ---------------------------------------------------------------------------
 {

@@ -129,7 +129,7 @@ await ir("dividas"); await aba("emprestimos");
 const f1 = await lerFluxo();
 conferir("Fluxo: o crédito do empréstimo sai de Entradas (não é receita)", perto(f0.entradas - f1.entradas, credito.v), `${brl(f0.entradas)} → ${brl(f1.entradas)}`);
 conferir("Fluxo: o SALDO não muda ao vincular (o dinheiro entrou na conta de verdade)", perto(f1.saldoFim, f0.saldoFim), `${brl(f0.saldoFim)} → ${brl(f1.saldoFim)}`);
-conferir("Fluxo: a linha própria \"Empréstimos recebidos\" aparece", /Empréstimos recebidos — dinheiro de dívida/.test(f1.tabela));
+conferir("Fluxo: a linha própria \"Empréstimos recebidos\" aparece", /Empréstimos recebidos/.test(f1.tabela));
 conferir("Fluxo: as saídas não mudam", perto(f1.saidas, f0.saidas));
 const d1 = await lerDre();
 conferir("DRE: o crédito aparece como \"Empréstimos recebidos (fora do DRE)\"", perto(d1.creditos - d0.creditos, credito.v), `${brl(d0.creditos)} → ${brl(d1.creditos)}`);
@@ -340,7 +340,7 @@ conferir("Dash: as entradas do período caem do mesmo valor", perto(h0.entradas 
   await pagina.click("#dividas-contratos-linhas tr:has-text('Pessoal Banco B') button[data-detalhe]");
   await esperar(250);
   const popB = (await pagina.$eval("#detalhe-corpo", (e) => e.innerText)).replace(/\s+/g, " ");
-  conferir("O pop-up do calculado traz \"Custo efetivo (calculado)\" e diz que não é informação do banco", /Custo efetivo \(calculado\) 1,39\d*% ao mês · 18,05\d*% ao ano — conta feita com o valor recebido e as parcelas, não é informação do banco/.test(popB), popB.slice(0, 500));
+  conferir("O pop-up do calculado traz \"Custo efetivo (calculado)\" e diz que não é informação do banco", /Custo efetivo \(calculado\) 1,39\d*% ao mês · 18,05\d*% ao ano \(conta feita com o valor recebido e as parcelas, não é informação do banco/.test(popB), popB.slice(0, 500));
   await pagina.click("#detalhe-fechar");
   await pagina.click("#dividas-contratos-linhas tr:has-text('Itaú com taxa') button[data-detalhe]");
   await esperar(250);
@@ -374,7 +374,7 @@ conferir("Dash: as entradas do período caem do mesmo valor", perto(h0.entradas 
   const popC = (await pagina.$eval("#detalhe-corpo", (e) => e.innerText)).replace(/\s+/g, " ");
   conferir("Pop-up do financiamento: assinatura, valor do imóvel (financia 80%), FGTS, juros nominais", /Assinado em 13\/11\/2023/.test(popC) && /Valor do imóvel R\$\s*300\.000,00 \(financia 80,00%\)/.test(popC) && /FGTS usado R\$\s*0,00/.test(popC) && /Juros nominais 7,82% ao ano/.test(popC), popC.slice(0, 700));
   conferir("Pop-up do financiamento: seguro e taxa operacional dentro da prestação, sistema SAC e o aviso do Fluxo",
-    /Seguro \(dentro da prestação\) R\$\s*53,83/.test(popC) && /Taxa operacional \(dentro da prestação\) R\$\s*25,00/.test(popC) && /Sistema SAC — a prestação diminui todo mês/.test(popC) && /No Fluxo a parcela não é projetada \(já está num registro de Registros ou é descontada em folha\)/.test(popC), popC.slice(0, 900));
+    /Seguro \(dentro da prestação\) R\$\s*53,83/.test(popC) && /Taxa operacional \(dentro da prestação\) R\$\s*25,00/.test(popC) && /Sistema SAC: a prestação diminui todo mês/.test(popC) && /No Fluxo a parcela não é projetada \(já está num registro de Registros ou é descontada em folha\)/.test(popC), popC.slice(0, 900));
   conferir("As parcelas do SAC descem: R$ 2.299,82 em outubro, R$ 2.295,54 em novembro", /Out\. de 26\s*R\$\s*2\.299,82/.test(popC) && /Nov\. de 26\s*R\$\s*2\.295,54/.test(popC), popC.slice(popC.indexOf("PARCELAS"), popC.indexOf("PARCELAS") + 120));
   await pagina.click("#detalhe-fechar");
 

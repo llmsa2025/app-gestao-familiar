@@ -467,6 +467,15 @@ console.log("Cliente de dados (db-servidor.js)\n");
   assert.ok(m && m[1].split(",").length === colecoesConhecidas.length && colecoesConhecidas.every((c) => m[1].split(",").includes(c)));
   assert.ok(pagina.indexOf("GF_PREFETCH") < pagina.indexOf('<script id="dados"'), "a busca antecipada sai ANTES do código pesado");
   ok("A busca antecipada leva todas as coleções do servidor e sai antes do código das telas");
+  // O ícone da aba (logo da lateral): declarado no app e no login, e os arquivos existem (que saem sem sessão, o contrato.mjs confere)
+  const web = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "web");
+  const entrar = readFileSync(join(web, "entrar.html"), "utf8");
+  for (const f of ["icone-favicon.svg", "icone-favicon-32.png", "icone-favicon-48.png"]) {
+    assert.ok(pagina.includes('href="/' + f + '"'), `a página do app tem de apontar para /${f}`);
+    assert.ok(entrar.includes('href="/' + f + '"'), `a tela de entrar tem de apontar para /${f}`);
+    assert.ok(readFileSync(join(web, f)).length > 0, `${f} não pode estar vazio`);
+  }
+  ok("A aba mostra a logo: o app e a tela de entrar apontam para o favicon");
   const sw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "web", "sw.js"), "utf8");
   assert.ok(!/const CACHE = "gf-v1"/.test(sw), "o nome do cache do service worker tem de mudar quando o cliente muda");
   ok("O service worker mudou o nome do cache (o aparelho descarta o cliente antigo)");

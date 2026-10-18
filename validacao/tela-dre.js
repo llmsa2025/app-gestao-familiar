@@ -240,8 +240,18 @@
     for (const proj of estado.projetos) {
       for (const item of proj.itens || []) {
         if (!item.valor || !item.data || item.pago) continue;
-        if (item.data < desde || item.data > ate) continue;
-        saida.push({ data: item.data, nome: item.descricao || proj.nome, categoria: item.categoria || SEM_CATEGORIA, projeto: proj.nome, valor: item.valor, fonte: "Projeto: " + proj.nome });
+        // O que já foi vinculado ao item está no realizado: só o que falta pagar é previsão (a mesma regra do Fluxo).
+        const valor = item.restante === undefined ? item.valor : item.restante;
+        if (!(valor > 0.005)) continue;
+        // Item com data vencida: só entra se já tem lançamento vinculado (o que falta é dívida conhecida), no primeiro dia da
+        // previsão; sem nenhum vínculo pode ter sido pago e só não vinculado, e prever de novo seria o dobro (a regra do Fluxo).
+        let data = item.data;
+        if (data < desde) {
+          if (valor < item.valor - 0.005 && desde === window.PERIODO.somaDias(hojeSP, 1)) data = desde;
+          else continue;
+        }
+        if (data > ate) continue;
+        saida.push({ data, nome: item.descricao || proj.nome, categoria: item.categoria || SEM_CATEGORIA, projeto: proj.nome, valor, fonte: "Projeto: " + proj.nome });
       }
     }
     return saida;
@@ -250,12 +260,12 @@
   /** Por que o grupo Projetos ficou vazio. Mesma explicação do Fluxo de caixa. */
   function motivoSemProjeto(de, ate) {
     const desde = de && de > hojeSP ? de : window.PERIODO.somaDias(hojeSP, 1);
-    if (!ate || ate < desde) return "o período escolhido termina hoje — projeto é previsão, escolha um período que alcance o futuro";
-    if (!estado.projetos.length) return "nenhum projeto em andamento — cadastre em Projetos";
+    if (!ate || ate < desde) return "o período escolhido termina hoje. Projeto é previsão, escolha um período que alcance o futuro";
+    if (!estado.projetos.length) return "nenhum projeto em andamento, cadastre em Projetos";
     const itens = estado.projetos.flatMap((p) => p.itens || []);
     if (!itens.length) return "os projetos ainda não têm itens planejados";
     if (!itens.some((i) => i.valor && i.data)) return "os itens ainda não têm data e valor";
-    if (!itens.some((i) => i.valor && i.data && !i.pago)) return "todos os itens já estão marcados como pagos";
+    if (!itens.some((i) => i.valor && i.data && !i.pago && (i.restante === undefined ? i.valor : i.restante) > 0.005)) return "tudo o que estava planejado já foi pago ou vinculado";
     return "nenhum item a pagar entre " + diaBR(desde) + " e " + diaBR(ate);
   }
 
@@ -452,11 +462,11 @@
   // Uma frase por assunto, curta: é para entender na hora, não para ler um artigo.
   const DICAS = {
     competencia:
-      "<strong>Competência</strong> — categorias com período que atravessa o mês entram no mês em que o ciclo termina, preservando a data bancária no detalhe. O cartão entra pelo <strong>total da fatura registrada</strong>, no mês do vencimento, mesmo que ainda não esteja pago. As compras individuais e os pagamentos dessa fatura não entram outra vez.",
+      "<strong>Competência</strong>: categorias com período que atravessa o mês entram no mês em que o ciclo termina, preservando a data bancária no detalhe. O cartão entra pelo <strong>total da fatura registrada</strong>, no mês do vencimento, mesmo que ainda não esteja pago. As compras individuais e os pagamentos dessa fatura não entram outra vez.",
     caixa:
-      "<strong>Caixa</strong> — só o que passou pelo banco. A compra no cartão não sai do seu dinheiro no dia, sai do do banco. O que sai do caixa é a <strong>fatura</strong>, no dia em que foi paga.",
+      "<strong>Caixa</strong>: só o que passou pelo banco. A compra no cartão não tira dinheiro da sua conta no dia. O que sai da conta é a <strong>fatura</strong>, no dia em que foi paga.",
     margem:
-      "<strong>Margem</strong> — quanto sobra de cada R$ 100 que entrou. <strong>Positiva</strong>: sobrou. <strong>Zero</strong>: gastou o que ganhou. <strong>Negativa</strong>: gastou mais, e a diferença saiu do que já tinha. Em mês de receita baixa ela explode — olhe o resultado em reais.",
+      "<strong>Margem</strong>: quanto sobra de cada R$ 100 que entrou. <strong>Positiva</strong>: sobrou. <strong>Zero</strong>: gastou o que ganhou. <strong>Negativa</strong>: gastou mais, e a diferença saiu do que já tinha. Em mês de receita baixa ela explode, então olhe o resultado em reais.",
   };
   const abrirRegime = (qual, alvo) => window.DICA.mostrar(alvo, DICAS[qual] || "");
   $("dre-tabela").addEventListener("click", (e) => {

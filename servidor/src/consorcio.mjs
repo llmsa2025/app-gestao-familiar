@@ -230,7 +230,7 @@ export async function contemplar(db, ativoId, pedido) {
   // O bem primeiro: a dívida guarda o NOME dele (a tela Bens guarda a dívida; os dois se completam).
   let bemNome = null;
   if (pedido.criarBem) {
-    const base = limpar(`${cota.tipo_bem || "Bem"} — ${ativo.nome}`, 80);
+    const base = limpar(`${cota.tipo_bem || "Bem"}: ${ativo.nome}`, 80);
     // o nome do bem é único (sem olhar maiúsculas): tenta o nome, depois com a cota, depois com o número do investimento
     for (const candidato of [base, `${base.slice(0, 70)} (${cota.cota || ativoId})`, `${base.slice(0, 60)} (#${ativoId})`]) {
       bemNome = candidato;

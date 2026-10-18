@@ -632,7 +632,7 @@
     // Em trânsito (`ag`, ver tela.mjs): a outra perna é de uma conta nossa que ainda não sincronizou.
     const entreContas = l.tt === "transferencia"
       ? l.ag
-        ? (entrada ? "vem de " : "vai para ") + (outra ? outra.rotulo : "outra conta sua") + " — a outra perna ainda não apareceu" +
+        ? (entrada ? "vem de " : "vai para ") + (outra ? outra.rotulo : "outra conta sua") + " (a outra perna ainda não apareceu)" +
           (outra && sincronizacaoDaConta(outra) ? ": essa conta não atualiza desde " + sincronizacaoDaConta(outra) : "")
         : (entrada ? "veio de " : "entrou em ") + (outra ? outra.rotulo : "outra conta sua") + (l.pd ? " em " + dataIso(l.pd) : "")
       : "";
@@ -1248,7 +1248,7 @@
       // nunca some — R2 —, então não há excluir). Fatura: nenhuma.
       let acoes = "";
       if (l.rec && estado.dbPronto) {
-        if (l.copia) acoes += iconeAcao("juntar", "juntar", 'data-id="' + esc(l.rec.id) + '" data-irmao="' + esc(l.irmao.id) + '"', "Juntar em " + l.irmao.nome + " — encerra este registro e deixa só " + l.irmao.nome);
+        if (l.copia) acoes += iconeAcao("juntar", "juntar", 'data-id="' + esc(l.rec.id) + '" data-irmao="' + esc(l.irmao.id) + '"', "Juntar em " + l.irmao.nome + ": encerra este registro e deixa só " + l.irmao.nome);
         else if (l.semPagamento) acoes += iconeAcao("encerrar", "juntar", 'data-id="' + esc(l.rec.id) + '"', "Encerrar este registro (o histórico dos meses já conciliados fica)");
         if (l.manual) acoes += iconeAcao("desfazer", "desfazer", 'data-chave="' + esc(chaveLinha) + '"', "Desfazer o pagamento marcado");
         else if (l.status.tipo !== "feito") acoes += iconeAcao("marcar", "marcar", 'data-chave="' + esc(chaveLinha) + '"', l.textos.marcar);
@@ -1281,11 +1281,11 @@
         "<td>" + (l.chaveLanc
           ? (estado.editandoNome === l.chaveLanc
               ? '<input class="campo campo-nome" data-chave="' + esc(l.chaveLanc) + '" value="' + esc(l.nome) + '" autocomplete="off">'
-              : '<button type="button" class="nome-editavel" data-acao="editar-nome" data-chave="' + esc(l.chaveLanc) + '" title="' + esc((titulo !== l.nome ? l.nome + " — " : "") + "clique para editar o nome") + '">' + esc(titulo) + "</button>")
+              : '<button type="button" class="nome-editavel" data-acao="editar-nome" data-chave="' + esc(l.chaveLanc) + '" title="' + esc((titulo !== l.nome ? l.nome + ". " : "") + "clique para editar o nome") + '">' + esc(titulo) + "</button>")
           : l.fatura
             ? '<button type="button" class="nome-detalhe" data-fatura="' + indice + '">' + esc(l.nome) + "</button>"
             : "<strong>" + esc(l.nome) + "</strong>") + (l.atraso ? ' <span class="pilula critico">multa por atraso</span>' : "") + (l.aporte ? ' <span class="pilula neutro">não é despesa</span>' : "") + (l.rec && l.rec.investimento_id ? ' <span class="pilula neutro" title="Investimento deste registro">→ ' + esc(nomeDoInvestimento(l.rec.investimento_id)) + "</span>" : "") +
-        (l.aguardando ? ' <span class="pilula atencao" title="' + esc(l.entreContas) + '. Assim que essa conta atualizar, as duas pernas se encontram sozinhas. Enquanto isso não é entrada nem saída — e não pega categoria nem registro.">aguardando a outra perna</span>' : "") +
+        (l.aguardando ? ' <span class="pilula atencao" title="' + esc(l.entreContas) + '. Assim que essa conta atualizar, as duas pernas se encontram sozinhas. Enquanto isso não é entrada nem saída e não pega categoria nem registro.">aguardando a outra perna</span>' : "") +
         (l.agendado ? ' <span class="pilula neutro" title="O banco mandou como pendente (agendado). Só conta em Entrou/Saiu e no Fluxo quando o banco lançar de verdade.">agendado</span>' : "") +
         (l.semPar ? ' <span class="pilula atencao" title="Saiu para você mesmo, mas a conta do outro lado não está no app. Para o que o app enxerga, o dinheiro saiu: conta como ' + (l.natureza === "entrada" ? "entrada" : "saída") + '. Sem categoria sua, aparece no Fluxo como Transferência ' + (l.natureza === "entrada" ? "entrada" : "saída") + '.">sem a outra perna · conta fora do app</span>' : "") +
         (l.pagamentoFatura ? ' <span class="pilula neutro" title="Débito reconhecido como pagamento de cartão, sem fatura correspondente no app">pagamento de fatura</span>' : "") +
@@ -1301,7 +1301,7 @@
         "<td" + balao("entrou") + ">" + (l.bancos && l.bancos.entrou ? esc(l.bancos.entrou) : '<span class="suave">—</span>') + "</td>" +
         // Transferência entre contas nossas: a categoria já diz isso; de onde veio, quando e que
         // não entra no Entrou/Saiu ficam no balão (os bancos, a pessoa e a data têm coluna).
-        "<td" + (l.entreContas ? ' title="entre contas · ' + esc(l.entreContas) + (l.aguardando ? " — não entra no Entrou/Saiu" : " — as duas pernas estão no app: não entra no Entrou/Saiu") + '"' : "") + ">" + celulaCategoria(l) + "</td>" +
+        "<td" + (l.entreContas ? ' title="entre contas · ' + esc(l.entreContas) + (l.aguardando ? " · não entra no Entrou/Saiu" : " · as duas pernas estão no app, então não entra no Entrou/Saiu") + '"' : "") + ">" + celulaCategoria(l) + "</td>" +
         // Valor: um número só. Com pagamento, o que foi pago; sem pagamento, o previsto
         // (itálico e cinza, como no Fluxo); fatura que não fechou, "a fechar". Previsto,
         // diferença, forma de pagamento e texto do extrato ficam no balão — antes eram
@@ -1727,7 +1727,7 @@
       desenhar();
       // Sem conta de banco (nem conta que costuma pagá-lo), o registro só aparece com Banco e Pessoa em "Todos".
       if (falhaPagamento) aviso("O registro foi criado, mas não consegui marcá-lo como pago agora. Use “Marcar como pago” na linha dele.");
-      else if (!id && unico && (estado.filtro.pessoa || estado.filtro.banco)) aviso("Registro salvo. Ele não tem conta de banco, então só aparece com Pessoa e Banco em “Todos” — use “Limpar filtros” para vê-lo.");
+      else if (!id && unico && (estado.filtro.pessoa || estado.filtro.banco)) aviso("Registro salvo. Ele não tem conta de banco, então só aparece com Pessoa e Banco em “Todos”. Use “Limpar filtros” para vê-lo.");
     } catch (e) {
       erro.textContent = e && e.code === "quota_exceeded" ? "O espaço de registros acabou. Exclua registros antigos para criar novos." : "Não foi possível salvar agora. Tente de novo em instantes.";
     } finally {

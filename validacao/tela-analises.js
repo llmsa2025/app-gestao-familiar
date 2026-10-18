@@ -272,7 +272,7 @@
     const quando = estado.docs.premissas && estado.docs.premissas.atualizadoEm ? "Atualizadas em " + estado.docs.premissas.atualizadoEm.slice(8, 10) + "/" + estado.docs.premissas.atualizadoEm.slice(5, 7) + "/" + estado.docs.premissas.atualizadoEm.slice(0, 4) + (estado.docs.premissas.fonte ? " · " + estado.docs.premissas.fonte : "") : "Valores de partida (confira): ainda não foram atualizados.";
     return '<section class="an-grupo an-premissas" aria-labelledby="an-prem-t"><h2 id="an-prem-t">Premissas do mercado</h2><div class="an-caixa"><div class="an-grade">' +
       '<div class="an-campo"><label for="an-cdi">CDI (% ao ano)</label><input class="campo" id="an-cdi" data-premissa="cdiAA" inputmode="decimal" autocomplete="off" value="' + esc(mostrar(p.cdiAA)) + '"></div>' +
-      '<div class="an-campo"><label for="an-ipca">Inflação — IPCA (% ao ano)</label><input class="campo" id="an-ipca" data-premissa="ipcaAA" inputmode="decimal" autocomplete="off" value="' + esc(mostrar(p.ipcaAA)) + '"></div>' +
+      '<div class="an-campo"><label for="an-ipca">Inflação (IPCA, % ao ano)</label><input class="campo" id="an-ipca" data-premissa="ipcaAA" inputmode="decimal" autocomplete="off" value="' + esc(mostrar(p.ipcaAA)) + '"></div>' +
       '<div class="an-campo"><span class="an-rotulo">&nbsp;</span><button type="button" class="botao" id="an-buscar-banco"' + (estado.buscandoBanco ? " disabled" : "") + ">Buscar no Banco Central</button></div></div>" +
       '<p class="suave pequeno" id="an-premissas-texto">' + esc(estado.mensagemBanco || quando) + " O CDI serve para taxas dadas em &ldquo;% do CDI&rdquo;; a inflação, para mostrar o valor de hoje do patrimônio futuro. Ninguém sabe o futuro: são suposições suas, e todas as contas mudam com elas.</p></div></section>";
   }
@@ -317,11 +317,11 @@
 
   const regrasHtml = () =>
     '<details class="an-regras an-caixa" id="an-regras"><summary>Como as contas são feitas (e o que fica de fora)</summary><ul>' +
-    "<li><strong>O que se compara</strong>: o patrimônio ligado à decisão — o bem, as aplicações, o dinheiro guardado e as dívidas em jogo — <strong>menos o que sai do seu bolso</strong> por causa dela (parcelas, custos de manter o bem, aportes) e <strong>mais o que entra</strong> (aluguel). Assim &ldquo;quitar&rdquo; é comparado com &ldquo;não quitar&rdquo; de forma justa, e financiar não parece de graça.</li>" +
+    "<li><strong>O que se compara</strong>: o patrimônio ligado à decisão (o bem, as aplicações, o dinheiro guardado e as dívidas em jogo) <strong>menos o que sai do seu bolso</strong> por causa dela (parcelas, custos de manter o bem, aportes) e <strong>mais o que entra</strong> (aluguel). Assim &ldquo;quitar&rdquo; é comparado com &ldquo;não quitar&rdquo; de forma justa, e financiar não parece de graça.</li>" +
     "<li><strong>Vender custa no mês 0</strong>: corretagem e imposto são perdas na hora. O gráfico mostra a queda inicial.</li>" +
-    "<li><strong>Imposto sobre o ganho do imóvel</strong>: 15% até R$ 5 milhões de ganho, 17,5% até 10 milhões, 20% até 30 milhões e 22,5% acima (Lei 13.259/2016). Há isenções (reinvestir o valor em outro imóvel residencial em até 180 dias; único imóvel de até R$ 440 mil): se for o seu caso, escolha &ldquo;Isento&rdquo; ou digite o valor. <strong>Confirme com seu contador</strong> — esta tela não decide o enquadramento.</li>" +
+    "<li><strong>Imposto sobre o ganho do imóvel</strong>: 15% até R$ 5 milhões de ganho, 17,5% até 10 milhões, 20% até 30 milhões e 22,5% acima (Lei 13.259/2016). Há isenções (reinvestir o valor em outro imóvel residencial em até 180 dias; único imóvel de até R$ 440 mil): se for o seu caso, escolha &ldquo;Isento&rdquo; ou digite o valor. <strong>Confirme com seu contador</strong>: esta tela não decide o enquadramento.</li>" +
     "<li><strong>Imposto da aplicação</strong>: renda fixa tributada paga 22,5% até 6 meses, 20% até 1 ano, 17,5% até 2 anos e 15% depois, sobre o ganho, no resgate; LCI/LCA e poupança são isentas para pessoa física; fundo com come-cotas paga 15% do ganho em maio e novembro e o resto no resgate. As contas mostram o valor <strong>líquido, como se resgatasse naquele mês</strong>.</li>" +
-    "<li><strong>Dívida</strong>: a taxa vem do cadastro do Endividamento (ou é descoberta pelas parcelas). Quitar parte mantém a parcela e encurta o prazo. Parcela que deixa de ser paga só rende se você marcar &ldquo;investir a parcela liberada&rdquo; — sem isso, o dinheiro liberado não entra na conta.</li>" +
+    "<li><strong>Dívida</strong>: a taxa vem do cadastro do Endividamento (ou é descoberta pelas parcelas). Quitar parte mantém a parcela e encurta o prazo. Parcela que deixa de ser paga só rende se você marcar &ldquo;investir a parcela liberada&rdquo;. Sem isso, o dinheiro liberado não entra na conta.</li>" +
     "<li><strong>Valor de hoje</strong> desconta a inflação que você informou. <strong>Taxa de empate</strong>: a taxa mensal em que a aplicação deixa de perder para a primeira alternativa.</li>" +
     "<li><strong>Fora da conta</strong>: renda e gastos da família (supõe-se iguais em todas as alternativas), a variação do imposto de renda anual, taxas de corretora e custódia, e qualquer imprevisto. É uma simulação para pensar, não uma recomendação de investimento.</li></ul></details>";
 
@@ -388,7 +388,7 @@
       const dividas = b.dividas.filter((x) => String(x.id) !== String(doBem));
       corpo = '<div class="an-grade">' + campoEscolha(id + "-divida", "Dívida", caminho + ".dividaId", d.dividaId, [["", "Escolha…"], ...dividas.map((x) => [x.id, x.nome + " (" + brl0.format(x.saldo) + ")"])], true) +
         '<div class="an-campo largo"><label class="check" for="' + id + '-inv"><input type="checkbox" id="' + id + '-inv" data-campo="' + caminho + '.investirParcela" data-check data-estrutural' + (d.investirParcela ? " checked" : "") + "> Investir a parcela que deixa de ser paga</label>" +
-        '<span class="suave">Sem isto, o dinheiro liberado não entra na comparação — e quitar parece perder para aplicar sem perder de fato.</span></div>' +
+        '<span class="suave">Sem isto, o dinheiro liberado não entra na comparação, e quitar parece perder para aplicar sem perder de fato.</span></div>' +
         (d.investirParcela ? camposDeAplicacao({ id, caminho }, d, false) : "") + "</div>";
     }
     return '<div class="an-destino" data-destino="' + j + '">' + tipoCampo + corpo + "</div>";
@@ -420,7 +420,7 @@
       '<div class="an-caixa"><div class="an-grade">' + campoTexto("an-nome", "Nome do cenário", "nome", c.nome) +
         campoEscolha("an-horizonte", "Olhando para daqui a", "horizonteMeses", c.horizonteMeses, PRAZOS.map((m) => [m, textoDoPrazo(m)])) + "</div></div>" +
       '<section class="an-grupo" aria-labelledby="an-orig-t"><h2 id="an-orig-t">1. O dinheiro em jogo</h2><div class="an-caixa" id="an-origem">' + origemHtml(c) + '<div id="an-extrato-lugar">' + extratoDaOrigem(sim) + "</div></div></section>" +
-      '<section class="an-grupo" aria-labelledby="an-alt-t"><h2 id="an-alt-t">2. O que fazer com ele — as alternativas</h2><div id="an-alternativas" class="an-grupo">' + (c.alternativas || []).map((a, i) => alternativaHtml(i, a, ehBem)).join("") + "</div>" +
+      '<section class="an-grupo" aria-labelledby="an-alt-t"><h2 id="an-alt-t">2. O que fazer com ele: as alternativas</h2><div id="an-alternativas" class="an-grupo">' + (c.alternativas || []).map((a, i) => alternativaHtml(i, a, ehBem)).join("") + "</div>" +
         ((c.alternativas || []).length < 6 ? '<div class="an-modelos"><button type="button" class="botao" data-acao="mais-alternativa" data-tipo="aplicar">+ Aplicar o dinheiro</button><button type="button" class="botao" data-acao="mais-alternativa" data-tipo="quitar"' + (base().dividas.length ? "" : " disabled") + '>+ Quitar uma dívida</button><button type="button" class="botao" data-acao="mais-alternativa" data-tipo="manter">+ ' + (ehBem ? "Manter o bem" : "Deixar parado") + "</button></div>" : "") + "</section>" +
       '<section class="an-grupo" aria-labelledby="an-res-t"><h2 id="an-res-t">3. O resultado</h2><div class="an-resultado" id="an-resultado">' + resultadoHtml(c, sim) + "</div></section>" +
       '<div class="an-modelos"><button type="button" class="botao" data-acao="duplicar">Duplicar este cenário</button>' +
@@ -481,7 +481,7 @@
       if (!alt || !(alt.destinos || []).some((d) => d.tipo === "aplicar")) continue;
       const e = guardado("e" + a.id + ref.id, c, () => window.ANALISES.taxaDeEmpate(c, premissas(), base(), a.id, ref.id));
       cartoes.push('<div class="an-empate" data-empate="' + esc(a.id) + '"><span class="an-rotulo suave">' + esc(a.nome) + " × " + esc(ref.nome) + "</span>" +
-        (e ? '<span class="an-num">' + n2.format(e.mensal * 100) + "% ao mês</span><span class=\"suave pequeno\">(" + n2.format(e.anual * 100) + "% ao ano) — acima disso, aplicar compensa; abaixo, " + esc(ref.nome.toLowerCase()) + " vence.</span>"
+        (e ? '<span class="an-num">' + n2.format(e.mensal * 100) + "% ao mês</span><span class=\"suave pequeno\">(" + n2.format(e.anual * 100) + "% ao ano): acima disso, aplicar compensa; abaixo, " + esc(ref.nome.toLowerCase()) + " vence.</span>"
           : '<span class="suave pequeno">Não há taxa de empate entre −1% e 8% ao mês.</span>') + "</div>");
     }
     return cartoes.length ? '<div><h3 style="margin:0 0 8px;font-size:15px">Taxa de empate</h3><div class="an-empates">' + cartoes.join("") + "</div></div>" : "";

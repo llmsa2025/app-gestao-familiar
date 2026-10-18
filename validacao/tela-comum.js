@@ -412,7 +412,7 @@ window.GF_DADOS = window.GF_DADOS || (() => {
     const face = Number(r.totalAPagar) || 0;
     const saldo = Number(r.total) || 0;
     const juros = Math.round((face - saldo) * 100) / 100;
-    const abertura = "<strong>Dívida de Face</strong> — tudo o que a família ainda vai pagar até quitar as dívidas: a soma de todas as parcelas que faltam, <strong>juros incluídos</strong>.";
+    const abertura = "<strong>Dívida de Face</strong>: tudo o que a família ainda vai pagar até quitar as dívidas, ou seja, a soma de todas as parcelas que faltam, <strong>juros incluídos</strong>.";
     if (juros <= 0.5) return abertura + " Hoje não há juros embutidos: ela é igual ao saldo devedor, " + reais.format(saldo) + ".";
     const origem = (r.itens || [])
       .map((d) => ({ nome: d.nome, juros: (d.parcelas || []).reduce((s, p) => s + p.valor, 0) - (Number(d.saldo) || 0) }))
@@ -640,24 +640,33 @@ window.GF_DADOS = window.GF_DADOS || (() => {
         }
       }
     }
-    // Projetos: cada item planejado é uma saída prevista na data dele. Item já
-    // marcado como pago sai fora — o pagamento dele já está no extrato, e contar
-    // os dois seria somar o mesmo dinheiro duas vezes.
+    // Projetos: cada item planejado é uma saída prevista na data dele, pelo que AINDA FALTA pagar. A tela de Projetos publica
+    // `restante` (o planejado menos as saídas que a pessoa vinculou ao item) e `vinculado` (quanto já foi vinculado): o que
+    // já saiu do extrato está no saldo do banco e na linha do projeto, e prever de novo contaria o mesmo dinheiro duas vezes.
+    // Item marcado como quitado (pago por fora) sai fora. Sem `restante` (projeto que não passou pela tela, ou a leitura dos
+    // vínculos falhou), vale o valor planejado, como antes.
     {
+      const reais = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
       for (const proj of (dados.projetos || [])) {
         for (const item of proj.itens || []) {
           if (!item.valor || !item.data || item.pago) continue;
-          if (item.data < de || item.data > ate) continue;
-          lista.push({
-            data: item.data,
+          const restante = item.restante === undefined ? item.valor : item.restante;
+          if (!(restante > 0.005)) continue;
+          const parcial = restante < item.valor - 0.005;
+          const base = {
             nome: item.descricao || proj.nome,
             // O projeto ganha linha própria em vez de se diluir nas categorias do
             // dia a dia: assim dá para ver quanto a obra ou a viagem pesa no mês.
             categoria: "Projeto · " + proj.nome,
+            projeto: proj.nome,
             grupo: "despesa",
-            valor: item.valor,
-            fonte: "Projeto: " + proj.nome,
-          });
+            valor: restante,
+            fonte: "Projeto: " + proj.nome + (parcial ? " (falta pagar " + reais.format(restante) + " de " + reais.format(item.valor) + ")" : ""),
+          };
+          if (item.data >= de && item.data <= ate) lista.push({ ...base, data: item.data });
+          // Item com data vencida: só entra se já tem lançamento vinculado (o que falta é dívida conhecida). Sem nenhum vínculo
+          // não dá para saber se ele foi pago e a pessoa só não vinculou: prever de novo seria o dobro. O Fluxo avisa.
+          else if (item.data < de && parcial && de <= amanha) lista.push({ ...base, data: de, atrasadoDesde: item.data });
         }
       }
     }
@@ -1366,7 +1375,7 @@ window.GF_DADOS = window.GF_DADOS || (() => {
           (nome !== l.s ? '<span class="meta">extrato: ' + esc(l.s) + "</span>" : "") +
           (l.p ? '<span class="meta">' + esc(l.p) + "</span>" : "") +
           competencia +
-          '<span class="meta">' + esc(origemDaCategoria(l, estado)) + "</span></td>" +
+          '<span class="meta">' + esc(opcoes.origem ? opcoes.origem(l) : origemDaCategoria(l, estado)) + "</span></td>" +
           "<td>" + esc(conta.banco) + '<span class="meta">' + esc(conta.nome) + "</span></td>" +
           '<td class="num ' + (l.v > 0 ? "pos" : "neg") + '">' + brl.format(Math.abs(l.v)) + "</td></tr>";
       }).join("") +

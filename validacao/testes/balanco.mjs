@@ -262,7 +262,7 @@ await navegador.close();
   const t = await abrir(caminho, seeds, "balanco", { agora });
   await t.pagina.waitForTimeout(900);
   const publicado = await t.pagina.evaluate(() => window.DASH.entradaDoBalanco("").comissoes);
-  conferir("A tela Comissões publica só o que falta receber (400 do Cliente A; o Cliente B já recebeu tudo)", publicado.length === 1 && publicado[0].valor === 400 && /Acme — Cliente A/.test(publicado[0].nome), JSON.stringify(publicado));
+  conferir("A tela Comissões publica só o que falta receber (400 do Cliente A; o Cliente B já recebeu tudo)", publicado.length === 1 && publicado[0].valor === 400 && /Acme · Cliente A/.test(publicado[0].nome), JSON.stringify(publicado));
   conferir("O Balanço mostra a linha com os 400", perto(await (async () => valor((await t.pagina.locator('[data-linha="comissoes"] summary .bal-valor').first().innerText())))(), 400));
   conferir("Nenhum erro de JavaScript (com a tela Comissões publicando)", t.erros.length === 0, t.erros.join(" | "));
   await t.navegador.close();

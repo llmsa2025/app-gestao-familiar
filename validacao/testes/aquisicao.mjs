@@ -65,7 +65,7 @@ const COL = { pessoa: 1, bem: 2, entrada: 3, parcela: 4, parcelas: 5, proxima: 6
   const pop = (await pagina.$eval("#detalhe-corpo", (e) => e.innerText)).replace(/\s+/g, " ");
   conferir("Pop-up: vendedor, valor do bem e a entrada com a data", /Vendedor Genilda Rocha Linhares/.test(pop) && /Valor do bem R\$\s*120\.000,00/.test(pop) && /Entrada R\$\s*24\.000,00 em 10\/01\/2024/.test(pop), pop.slice(0, 120));
   conferir("Pop-up: 100 × R$ 960,00 = R$ 96.000,00 (valor do bem − entrada = R$ 96.000,00)", /100 × R\$\s*960,00 = R\$\s*96\.000,00 \(valor do bem − entrada = R\$\s*96\.000,00\)/.test(pop), pop.slice(0, 120));
-  conferir("Pop-up: o vigia à parte e o que sai por mês", /Pago junto da parcela Vigia R\$\s*40,00 por mês — no extrato sai R\$\s*1\.000,00 por mês/.test(pop), pop.slice(0, 120));
+  conferir("Pop-up: o vigia à parte e o que sai por mês", /Pago junto da parcela Vigia R\$\s*40,00 por mês \(no extrato sai R\$\s*1\.000,00 por mês\)/.test(pop), pop.slice(0, 120));
   conferir("Pop-up: já pago = entrada + 42 parcelas", /Já pago R\$\s*64\.320,00 = entrada de R\$\s*24\.000,00 \+ 42 parcelas × R\$\s*960,00 \(53,6% do bem\)/.test(pop), pop.slice(0, 120));
   conferir("Pop-up: falta pagar R$ 55.680,00 em 58 parcelas, até Ago. de 31", /Falta pagar R\$\s*55\.680,00 em 58 parcelas, até Ago\. de 31/.test(pop), pop.slice(0, 120));
   conferir("Pop-up: sem taxa, CET nem IOF", !/Juros|CET|IOF|Valor recebido|Assinado/.test(pop), pop.slice(0, 120));
@@ -119,7 +119,7 @@ for (const [rotulo, agora, pagas] of [
   await pagina.fill("#d-extra-nome", "Vigia");
   let conta = (await pagina.textContent("#d-conta")).replace(/\s+/g, " ");
   conferir("A conta ao vivo: confere (R$ 96.000), 42 pagas, 58 faltando, já pago R$ 64.320, sai R$ 1.000 por mês",
-    /Valor do bem − entrada = R\$\s*96\.000,00; 100 × R\$\s*960,00 = R\$\s*96\.000,00 — confere\./.test(conta) && /42 parcelas pagas e 58 faltando/.test(conta) &&
+    /Valor do bem − entrada = R\$\s*96\.000,00; 100 × R\$\s*960,00 = R\$\s*96\.000,00\. Confere\./.test(conta) && /42 parcelas pagas e 58 faltando/.test(conta) &&
     /Já pago R\$\s*64\.320,00, com a entrada; falta pagar R\$\s*55\.680,00/.test(conta) && /sai R\$\s*1\.000,00 por mês/.test(conta), conta);
   await pagina.fill("#d-parcela", "1.000,00");
   conta = (await pagina.textContent("#d-conta")).replace(/\s+/g, " ");

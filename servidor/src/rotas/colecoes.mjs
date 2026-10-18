@@ -20,6 +20,7 @@ import {
   lerMemoriaBens, gravarMemoriaBens, apagarMemoriaBens,
 } from "../bens.mjs";
 import { lerSaude, gravarSaude, apagarSaude } from "../saude.mjs";
+import { lerVinculosProjetos, gravarVinculosProjetos, apagarVinculoProjeto } from "../projetos.mjs";
 import { lerAnalises, gravarAnalises, apagarAnalises } from "../analises.mjs";
 import {
   lerEmpresas, gravarEmpresa, apagarEmpresa, lerNegocios, gravarNegocio, apagarNegocio,
@@ -205,6 +206,8 @@ const COLECOES = {
   comissoes_negocios: { ler: lerNegocios, gravar: gravarNegocio, apagar: apagarNegocio },
   comissoes_recebimentos: { ler: lerRecebimentos, gravar: gravarRecebimento, apagar: apagarRecebimento },
   projetos: { tabela: "projetos", numerica: true, comItens: true },
+  // Qual lançamento do extrato pertence a qual projeto (e item), id = chave do lançamento. Regras em ../projetos.mjs.
+  vinculos_projetos: { ler: lerVinculosProjetos, gravar: gravarVinculosProjetos, apagar: apagarVinculoProjeto },
   // Pagamento marcado à mão ("recebido em dinheiro", por exemplo).
   //
   // A tela endereça o documento por "<id do registro>__<AAAA-MM>" e grava
@@ -277,10 +280,12 @@ const COLECOES = {
         // aporte/resgate desse investimento, sem o usuário vincular de novo. Vínculo que ele já
         // tinha feito à mão não é trocado.
         if (lancamentoId) {
-          // Um lançamento que já é custo de um bem não vira também aporte (a tabela só existe depois da migration 021).
+          // Um lançamento que já é custo de um bem (migration 021) ou está num projeto (028) não vira também aporte.
           const jaEmBem = (await umaDaTransacao("SELECT to_regclass('public.bens_vinculos_lanc') AS t")).t
             && await umaDaTransacao("SELECT 1 AS x FROM bens_vinculos_lanc WHERE lancamento_id = $1", [lancamentoId]);
-          if (!jaEmBem) {
+          const jaEmProjeto = (await umaDaTransacao("SELECT to_regclass('public.projeto_vinculos_lanc') AS t")).t
+            && await umaDaTransacao("SELECT 1 AS x FROM projeto_vinculos_lanc WHERE lancamento_id = $1", [lancamentoId]);
+          if (!jaEmBem && !jaEmProjeto) {
             await cli.query(
               `INSERT INTO inv_vinculos_lanc (lancamento_id, ativo_id)
                SELECT $1, r.investimento_id FROM registros r WHERE r.id = $2 AND r.investimento_id IS NOT NULL
@@ -412,11 +417,21 @@ export async function gravar(req, res, nome, id) {
 
 async function gravarItens(cli, projetoId, itens) {
   await cli.query("DELETE FROM projeto_itens WHERE projeto_id = $1", [projetoId]);
+  const refs = [];
   for (const i of itens || []) {
+    const ref = i.id ? String(i.id) : null;
+    if (ref) refs.push(ref);
     await cli.query(
       `INSERT INTO projeto_itens (projeto_id, ref, descricao, valor, data, categoria, pago) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [projetoId, i.id ? String(i.id) : null, i.descricao || "", i.valor || 0, i.data || null, i.categoria || null, !!i.pago],
+      [projetoId, ref, i.descricao || "", i.valor || 0, i.data || null, i.categoria || null, !!i.pago],
     );
+  }
+  // Os itens são apagados e reinseridos a cada gravação, então o vínculo guarda o `ref` (texto) e não o id do banco.
+  // O item que saiu do projeto deixa o lançamento ligado ao projeto, só sem item (a tabela só existe depois da migration 028).
+  if ((await cli.query("SELECT to_regclass('public.projeto_vinculos_lanc') AS t")).rows[0].t) {
+    await cli.query(
+      `UPDATE projeto_vinculos_lanc SET item_ref = NULL
+        WHERE projeto_id = $1 AND item_ref IS NOT NULL AND NOT (item_ref = ANY($2::text[]))`, [projetoId, refs]);
   }
 }
 

@@ -143,6 +143,18 @@ export async function abrir(caminho, dados = {}, vista = "fluxo", opcoes = {}) {
             } else if (col === "vinculos_bens" && Array.isArray(d.chaves)) {
               // O mesmo para os custos de bem: um vínculo por lançamento, todos com o mesmo bem e o mesmo custo.
               for (const c of d.chaves) (base[col] = base[col] || {})[c] = { chave: c, bemId: d.bemId, custo: d.custo };
+            } else if (col === "vinculos_projetos") {
+              // E os lançamentos de um projeto: um vínculo por chave. Como o servidor, a leitura devolve também o valor, a data, o
+              // texto e se é do cartão (o total do projeto não depende do extrato carregado na página).
+              const chaves = Array.isArray(d.chaves) ? d.chaves : [d.chave || id];
+              for (const c of chaves) {
+                const l = (window.GF_DADOS.registros || []).find((r) => window.MEMORIA.chaveLancamento(r) === c);
+                const conta = l ? (window.GF_DADOS.contas || []).find((x) => x.i === l.c) : null;
+                (base[col] = base[col] || {})[c] = {
+                  chave: c, projetoId: d.projetoId, itemId: d.itemId || "",
+                  valor: l ? l.v : d.valor || 0, data: l ? String(l.d).slice(0, 10) : d.data || "", descricao: l ? l.s : d.descricao || "", cartao: conta ? !!conta.cartao : !!d.cartao,
+                };
+              }
             } else (base[col] = base[col] || {})[id] = d;
             avisar(col);
           },

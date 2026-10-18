@@ -58,6 +58,7 @@ if (!plano.length) {
     await cliente.query("BEGIN");
     const temInvest = !!(await cliente.query("SELECT to_regclass('public.inv_vinculos_lanc') AS t")).rows[0].t;
     const temDivida = !!(await cliente.query("SELECT to_regclass('public.divida_vinculos_lanc') AS t")).rows[0].t;
+    const temProjeto = !!(await cliente.query("SELECT to_regclass('public.projeto_vinculos_lanc') AS t")).rows[0].t;
     for (const { mantida, descartada } of plano) {
       // Categoria e nome: os seus valem; se a que fica ainda não tem, recebe os da que sai.
       await cliente.query(
@@ -87,6 +88,15 @@ if (!plano.length) {
         await cliente.query(
           `UPDATE inv_vinculos_lanc SET lancamento_id = $1
             WHERE lancamento_id = $2 AND NOT EXISTS (SELECT 1 FROM inv_vinculos_lanc WHERE lancamento_id = $1)`,
+          [mantida._lid, descartada._lid],
+        );
+      }
+      // Vínculo com projeto (migration 028): o mesmo. Sem isso o lançamento que fica voltaria para a categoria e o item do projeto
+      // voltaria a ser previsto, contando o mesmo gasto duas vezes.
+      if (temProjeto) {
+        await cliente.query(
+          `UPDATE projeto_vinculos_lanc SET lancamento_id = $1
+            WHERE lancamento_id = $2 AND NOT EXISTS (SELECT 1 FROM projeto_vinculos_lanc WHERE lancamento_id = $1)`,
           [mantida._lid, descartada._lid],
         );
       }

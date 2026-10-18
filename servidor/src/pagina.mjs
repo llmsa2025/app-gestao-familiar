@@ -245,6 +245,11 @@ export function injetar(html) {
     // deixa o env(safe-area-inset-*) funcionar embaixo da barra de gestos.
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' +
     '<link rel="manifest" href="/manifest.webmanifest">' +
+    // O ícone da aba é a logo da lateral. Declarado aqui de propósito: sem isto o navegador pede /favicon.ico, que cai no login.
+    // O PNG é para o navegador que não lê favicon em SVG.
+    '<link rel="icon" type="image/svg+xml" href="/icone-favicon.svg">' +
+    '<link rel="icon" type="image/png" sizes="32x32" href="/icone-favicon-32.png">' +
+    '<link rel="icon" type="image/png" sizes="48x48" href="/icone-favicon-48.png">' +
     // A cor da barra de status do Android/iOS segue o tema do aparelho e usa o
     // fundo do app — antes era um verde que não existia em lugar nenhum da tela,
     // e o topo ficava com uma faixa destoando do conteúdo.

@@ -152,9 +152,9 @@
     const passivoCirc = [
       ...(curto.cartoes ? [linha("cartoes", ROTULO_DE_DIVIDA.cartoes, curto.cartoes, { ir: "dividas", nota: "o que já foi gasto e ainda não foi pago" })] : []),
       ...(contasNoVermelho.length ? [linha("no-vermelho", "Contas no vermelho", contasNoVermelho, { ir: "contas" })] : []),
-      ...ORDEM_DE_DIVIDA.filter((g) => g !== "cartoes" && curto[g]).map((g) => linha("curto-" + g, ROTULO_DE_DIVIDA[g] + " — parcelas de até 12 meses", curto[g], { ir: "dividas" })),
+      ...ORDEM_DE_DIVIDA.filter((g) => g !== "cartoes" && curto[g]).map((g) => linha("curto-" + g, ROTULO_DE_DIVIDA[g] + " (parcelas de até 12 meses)", curto[g], { ir: "dividas" })),
     ];
-    const passivoNaoCirc = ORDEM_DE_DIVIDA.filter((g) => longo[g]).map((g) => linha("longo-" + g, ROTULO_DE_DIVIDA[g] + " — depois de 12 meses", longo[g], { ir: "dividas" }));
+    const passivoNaoCirc = ORDEM_DE_DIVIDA.filter((g) => longo[g]).map((g) => linha("longo-" + g, ROTULO_DE_DIVIDA[g] + " (depois de 12 meses)", longo[g], { ir: "dividas" }));
 
     const bloco = (linhas) => ({ total: soma(linhas, (l) => l.valor), linhas });
     const ativo = { circulante: bloco(ativoCirc), naoCirculante: bloco(ativoNaoCirc) };

@@ -36,6 +36,7 @@ const codigoRecorrentes = readFileSync(join(AQUI, "tela-recorrentes.js"), "utf8"
 const codigoFluxo = readFileSync(join(AQUI, "tela-fluxo.js"), "utf8");
 const codigoDre = readFileSync(join(AQUI, "tela-dre.js"), "utf8");
 const codigoProjetos = readFileSync(join(AQUI, "tela-projetos.js"), "utf8");
+const codigoProjetosCalculo = readFileSync(join(AQUI, "projetos-calculo.js"), "utf8");
 const codigoInvestimentos = readFileSync(join(AQUI, "tela-investimentos.js"), "utf8");
 const codigoComissoes = readFileSync(join(AQUI, "tela-comissoes.js"), "utf8");
 const codigoConfig = readFileSync(join(AQUI, "tela-config.js"), "utf8");
@@ -56,6 +57,7 @@ for (const [nome, codigo] of [
   ["tela-recorrentes.js", codigoRecorrentes],
   ["tela-fluxo.js", codigoFluxo],
   ["tela-dre.js", codigoDre],
+  ["projetos-calculo.js", codigoProjetosCalculo],
   ["tela-projetos.js", codigoProjetos],
   ["consorcio-calculo.js", codigoConsorcioCalculo],
   ["tela-investimentos.js", codigoInvestimentos],
@@ -945,7 +947,7 @@ const htmlBuracos = buracos.length
   : `<p class="vazio">Nenhum mês vazio no meio do período de nenhuma conta.</p>`;
 
 const htmlContasSemNada = contasSemNada.length
-  ? `<p class="suave pequeno">Sem nenhum lançamento no período coletado: ${contasSemNada.map((c) => esc(c.rotulo)).join(" · ")}. Isso é normal em poupança parada ou cartão sem uso — confira o saldo na tela Contas e bancos.</p>`
+  ? `<p class="suave pequeno">Sem nenhum lançamento no período coletado: ${contasSemNada.map((c) => esc(c.rotulo)).join(" · ")}. Isso é normal em poupança parada ou cartão sem uso. Confira o saldo na tela Contas e bancos.</p>`
   : "";
 
 const htmlQualidadeContas = contas
@@ -1187,7 +1189,7 @@ const html = `<title>Gestão Família</title>
      Base da lateral: o rodapé da coleta, o aviso de banco parado e quem está logado. */
   .lateral-base { flex: none; display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--linha); }
   .rodape-menu { padding: 0 6px; font-size: 11.5px; line-height: 1.4; color: var(--suave); }
-  .lateral-marca { flex: none; display: grid; justify-items: start; gap: 8px; padding: 2px 4px 12px; border-bottom: 1px solid var(--linha); }
+  .lateral-marca { flex: none; display: grid; justify-items: start; gap: 8px; padding: 2px 4px 12px; }
   .lateral-marca .icone-recolher { width: 24px; height: 24px; border-radius: 6px; }
   .lateral-marca .icone-recolher svg { width: 14px; height: 14px; }
   .marca { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 2px; }
@@ -1344,8 +1346,14 @@ const html = `<title>Gestão Família</title>
   .segmento { display: inline-flex; border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; background: var(--superficie); }
   .segmento button { font: inherit; font-size: 13.5px; border: 0; background: transparent; color: var(--tinta); padding: 8px 12px; cursor: pointer; }
   .segmento button + button { border-left: 1px solid var(--linha); }
-  .info { display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 6px; border-radius: 50%; border: 1px solid var(--linha); font-size: 10px; font-weight: 600; color: var(--suave); vertical-align: 1px; }
-  .info:hover { background: var(--acento); border-color: var(--acento); color: #fff; cursor: pointer; }
+  /* Ícone de informação: um desenho só (círculo com "i"), pequeno e igual em todo o app. O "i" escrito no HTML fica só para
+     leitor de tela e para os testes; quem aparece é o ::before, pintado com a cor do texto (por isso acompanha o tema). */
+  .info, .icone-ajuda { --glifo-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9.4' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3Ccircle cx='12' cy='7.8' r='1.3'/%3E%3Crect x='11.05' y='10.5' width='1.9' height='6.4' rx='.95'/%3E%3C/svg%3E"); }
+  .info::before, .icone-ajuda::before { content: ""; display: block; background-color: currentColor; -webkit-mask: var(--glifo-info) center / contain no-repeat; mask: var(--glifo-info) center / contain no-repeat; }
+  .info { display: inline-block; box-sizing: content-box; width: 13px; height: 13px; padding: 3px; margin: -3px -3px -3px 3px; border-radius: 50%; vertical-align: -3px; font-size: 0; line-height: 0; color: var(--suave); opacity: .75; }
+  .info::before { width: 13px; height: 13px; }
+  .info:hover, .info:focus-visible { color: var(--acento); opacity: 1; cursor: pointer; }
+  .info:focus-visible { outline: 2px solid var(--acento); outline-offset: 0; }
   .numeros .info, .cartao-dash .info, .resultado .info, .bloco-titulo .info, .inv-pessoas th .info { text-transform: none; letter-spacing: 0; font-family: "IBM Plex Sans", sans-serif; }
   .dica { position: absolute; z-index: 60; max-width: 300px; background: var(--tinta); color: var(--fundo); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.22); }
   .dica strong { color: #fff; }
@@ -1579,8 +1587,12 @@ const html = `<title>Gestão Família</title>
      filtro para fora da caixa: o cabeçalho quebra em duas linhas. */
   .cabeca.com-acao { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; }
   .cabeca.com-acao > div:first-child { flex: 1 1 260px; min-width: 0; }
-  .icone-ajuda { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--linha); background: var(--superficie); color: var(--suave); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
-  .icone-ajuda:hover { background: var(--acento-fundo); color: var(--tinta); border-color: var(--acento); }
+  .icone-ajuda { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-left: -5px; padding: 0; border-radius: 50%; border: 0; background: none; color: var(--suave); font-size: 0; line-height: 0; cursor: pointer; }
+  .icone-ajuda::before { width: 18px; height: 18px; }
+  .icone-ajuda:hover, .icone-ajuda:focus-visible { background: var(--acento-fundo); color: var(--acento); }
+  .icone-ajuda:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+  /* "Como esta conta é feita" (Fluxo): o mesmo círculo, com interrogação */
+  #fluxo-ajuda { --glifo-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9.4' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3Cpath d='M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.45-1.2.95-1.2 1.9' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='16.9' r='1.15'/%3E%3C/svg%3E"); }
   .acoes-cabeca { display: flex; gap: 8px; align-items: center; flex: none; }
   .icone-olho { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--linha); background: var(--superficie); color: var(--suave); cursor: pointer; padding: 0; }
   .icone-olho:hover { background: var(--acento-fundo); color: var(--tinta); border-color: var(--acento); }
@@ -1740,6 +1752,10 @@ const html = `<title>Gestão Família</title>
     .lateral-recolhida .marca-texto, .lateral-recolhida .usuario-texto,
     .lateral-recolhida .rodape-menu, .lateral-recolhida .conexoes-paradas { display: none !important; }
     .lateral-recolhida .lateral-marca { justify-items: center; padding-inline: 0; }
+    /* O botão tem justify-self: start (regra geral do .icone-recolher), que ganha do justify-items da marca: sem isto ele ficava à esquerda. */
+    .lateral-recolhida .lateral-marca .icone-recolher { justify-self: center; }
+    /* Sem o nome, o rótulo do primeiro grupo só deixava um fio solto embaixo do botão de expandir. */
+    .lateral-recolhida .menu > .grupo:first-child > .rotulo { display: none; }
     .lateral-recolhida .marca { padding: 0; }
     .lateral-recolhida .usuario { flex-direction: column; gap: 4px; padding: 6px 0; background: transparent; }
   }
@@ -1815,6 +1831,140 @@ const html = `<title>Gestão Família</title>
     .menu { display: grid; gap: 12px; }
     .grupo { display: grid; gap: 2px; }
     .item { white-space: normal; }
+  }
+  /* Celular: os números de resumo viram cards compactos numa grade de duas colunas.
+     Antes eram uma lista solta, com larguras diferentes por tela (um ao lado do outro,
+     depois um por linha) — a primeira coisa que fazia a tela parecer desalinhada. */
+  @media (max-width: 760px) {
+    .numeros, .cartoes-dash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .numeros > div, .cartao-dash {
+      min-width: 0; align-content: start; gap: 3px; padding: 10px 12px;
+      background: var(--superficie); border: 1px solid var(--linha); border-radius: 10px;
+    }
+    .numeros dt, .cartao-dash dt { font-size: 11px; letter-spacing: 0.05em; line-height: 1.3; }
+    .numeros dd, .cartao-dash dd { margin: 0; font-size: clamp(14px, 4.2vw, 17px); overflow-wrap: anywhere; }
+    .numeros .meta, .cartao-dash .meta { font-size: 11.5px; line-height: 1.3; }
+    /* número ímpar: o último ocupa a linha inteira, em vez de sobrar um buraco ao lado */
+    .numeros > div:last-child:nth-child(odd), .cartoes-dash > .cartao-dash:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    /* dentro de um bloco o card já tem moldura própria: tira a faixa com borda de baixo */
+    .bloco > .numeros, .bloco.recolhido > .numeros { padding: 10px 12px; border-bottom: 0; gap: 8px; }
+    .bloco.recolhido > .numeros dd { font-size: clamp(14px, 4.2vw, 16px); }
+  }
+  /* Celular: uma moldura só para todas as telas — mesma margem dos dois lados, topo fixo
+     com o título e as ações, e filtros numa grade de duas colunas com a mesma largura.
+     A margem era 12 px à esquerda e 20 px à direita (feita para o menu lateral do
+     computador): no celular o conteúdo ficava torto. */
+  @media (max-width: 760px) {
+    /* Margem lateral do celular: 8 px (era 16). As caixas ficam coladas na lateral, e o título do topo
+       continua 16 px para dentro da borda. */
+    body { padding-inline: 8px; padding-block-start: 0; }
+    .vista { gap: 16px; }
+
+    .vista > .cabeca:first-child {
+      position: sticky; top: 0; z-index: 40;
+      margin: 0 -8px; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+      background: var(--fundo); border-bottom: 1px solid var(--linha);
+      align-items: center; gap: 8px;
+    }
+    .vista > .cabeca:first-child > .rotulo,
+    .vista > .cabeca:first-child > div > .rotulo { display: none; }
+    .vista > .cabeca:first-child h1 { font-size: 22px; line-height: 1.2; }
+    .vista > .cabeca:first-child .titulo-tela { gap: 8px; }
+    .vista > .cabeca.com-acao > div:first-child { flex: 1 1 0; }
+    .acoes-cabeca { gap: 8px; }
+    /* ícones e botões de ação no tamanho de um toque */
+    .icone-olho { width: 36px; height: 36px; }
+
+    .filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+    .filtros > * { min-width: 0; }
+    .filtros .campo, .filtros select.campo, .filtros input.campo { width: 100%; font-size: 15px; padding: 9px 10px; }
+    /* o que não é um campo (frase do período, caixa de marcar, botões, segmentos) usa a linha inteira */
+    .filtros > :not(.campo-grupo), .filtros > .campo-grupo:has(.segmento, #busca, input[type="search"], input[type="text"]) { grid-column: 1 / -1; }
+    .filtros .segmento { display: flex; width: 100%; }
+    .filtros .segmento button { flex: 1 1 0; padding: 9px 6px; }
+    #busca { width: 100%; }
+
+    /* Fluxo e DRE: a coluna de descrição ficava com mais da metade da tela (200 px de 393)
+       e o valor do mês sumia na borda. Agora ela é estreita e o resto rola de mês em mês. */
+    table.matriz th:first-child { width: 138px; }
+    table.matriz td:first-child, table.matriz th:first-child {
+      min-width: 128px; max-width: 150px; padding-inline: 10px 8px; font-size: 13px;
+      box-shadow: 1px 0 0 var(--linha);
+    }
+    table.matriz th.num, table.matriz td.num { min-width: 108px; padding-inline: 8px; font-size: 13px; scroll-snap-align: start; }
+    table.matriz th.num:last-child, table.matriz td.num:last-child { padding-right: 14px; min-width: 112px; }
+    .rolagem:has(table.matriz) { scroll-snap-type: x proximity; scroll-padding-left: 138px; }
+
+    /* Registros: no celular a tabela de 11 colunas vira uma lista. Cada registro é um bloco com
+       o nome e o valor na primeira linha, a categoria embaixo e o resto (pessoa, banco, data,
+       situação) em letra pequena. Célula vazia ("—") some em vez de ocupar espaço. */
+    [data-vista="recorrentes"] .rolagem { max-height: none; overflow: visible; }
+    [data-vista="recorrentes"] .rolagem table, [data-vista="recorrentes"] .rolagem tbody { display: block; width: 100%; }
+    [data-vista="recorrentes"] .rolagem thead { display: none; }
+    [data-vista="recorrentes"] #rec-linhas > tr.bloco-titulo, [data-vista="recorrentes"] #rec-linhas > tr.bloco-titulo > td { display: block; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+      padding: 12px 14px; border-bottom: 1px solid var(--linha);
+    }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td {
+      display: block; padding: 0; border: 0; min-width: 0; width: auto; background: none;
+      position: static; font-size: 12.5px; color: var(--suave); order: 4;
+    }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:not(:nth-child(8)):has(> .suave:only-child) { display: none; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(2) { order: 1; flex: 1 1 0; font-size: 15px; color: var(--tinta); font-weight: 600; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(2) .nome-detalhe { text-align: left; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(8) { order: 2; flex: none; text-align: right; font-size: 15px; color: var(--tinta); font-weight: 600; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(6) { order: 3; flex: 1 1 100%; }
+    [data-vista="recorrentes"] #rec-linhas .campo-categoria { width: 100%; max-width: 100%; min-width: 0; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:empty { display: none; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:nth-child(1)::before { content: "Doc "; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:nth-child(4)::before { content: "Saiu: "; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:nth-child(5)::before { content: "Entrou: "; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:nth-child(7)::before { content: "Pago em "; }
+    [data-vista="recorrentes"] #rec-linhas > tr:not(.bloco-titulo) > td:nth-child(10)::before { content: "Recorrente "; }
+    [data-vista="recorrentes"] #rec-linhas .icone-acao { width: 34px; height: 34px; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(9) { order: 5; flex: 1 1 auto; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(10) { order: 5; }
+    [data-vista="recorrentes"] #rec-linhas > tr > td:nth-child(11) { order: 6; margin-left: auto; }
+    [data-vista="recorrentes"] #rec-linhas > tr.vencido > td:first-child { box-shadow: none; }
+    [data-vista="recorrentes"] #rec-linhas > tr.vencido { box-shadow: inset 3px 0 0 var(--critico); }
+
+    /* Pop-ups viram folha que sobe de baixo, na largura toda, e param em cima da barra de baixo
+       (a barra fica por cima do véu, então o espaço dela é descontado da altura da folha). */
+    .modal { align-items: end; padding: 0 0 calc(72px + env(safe-area-inset-bottom, 0px)); }
+    .modal .modal-caixa, .modal .modal-caixa.estreita, .modal .modal-caixa.media, .modal .modal-caixa.larga {
+      width: 100%; max-width: 100%; max-height: calc(100vh - 72px - 12px); max-height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px) - 12px);
+      border-radius: 16px;
+    }
+    .modal-topo { padding: 12px 16px; }
+    .modal-corpo { padding: 14px 16px 18px; }
+    .form-acoes .botao { flex: 1 1 auto; }
+
+    /* Demais tabelas: cada célula leva o nome da coluna (data-rotulo, posto pelo script mais
+       abaixo) e a linha vira um bloco "nome  valor". Célula vazia ("—") some. Linha com
+       colspan (título de grupo, linha de detalhe) continua inteira, como no computador. */
+    .rolagem:has(table[data-lista]) { max-height: none; overflow: visible; }
+    table[data-lista], table[data-lista] tbody { display: block; width: 100%; }
+    table[data-lista] thead { display: none; }
+    table[data-lista] tbody tr { display: block; padding: 10px 14px; border-bottom: 1px solid var(--linha); }
+    table[data-lista] tbody tr.linha-larga { padding: 0; }
+    table[data-lista] tbody tr.linha-larga > td { display: block; }
+    table[data-lista] tbody tr:not(.linha-larga) > td {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+      padding: 2px 0; border: 0; background: none; min-width: 0; width: auto;
+      position: static; text-align: right; font-size: 13.5px;
+    }
+    table[data-lista] tbody tr:not(.linha-larga) > td::before { content: attr(data-rotulo); flex: none; max-width: 42%; text-align: left; color: var(--suave); font-size: 12px; }
+    table[data-lista] tbody tr:not(.linha-larga) > td:not([data-rotulo]) { justify-content: flex-end; }
+    table[data-lista] tbody tr:not(.linha-larga) > td:first-child { display: block; text-align: left; font-weight: 600; font-size: 14.5px; padding-bottom: 5px; }
+    table[data-lista] tbody tr:not(.linha-larga) > td:first-child::before { content: none; }
+    table[data-lista] tbody tr:not(.linha-larga) > td:empty,
+    table[data-lista] tbody tr:not(.linha-larga) > td:not(:first-child):has(> .suave:only-child) { display: none; }
+    table[data-lista] .campo { max-width: 100%; }
+
+    .abas { display: flex; flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; margin-bottom: 14px; }
+    .abas::-webkit-scrollbar { display: none; }
+    .abas .aba { flex: 1 0 auto; white-space: nowrap; padding: 8px 12px; font-size: 13.5px; }
   }
   @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
     .lateral { transition: none; }
@@ -1992,7 +2142,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-saude", "Saúde financeira", "Os números que dizem se a família está <strong>crescendo</strong> ou <strong>se apertando</strong>: endividamento, colchão (reserva e abastança), crescimento e patrimônio — cada um com a conta que o formou, uma cor (verde, amarelo, vermelho) e, ao lado, o <strong>ano anterior</strong>. Tudo é calculado do extrato, dos Registros, do Endividamento, dos Investimentos e dos Bens; nada é digitado aqui, a não ser as metas e a base do ano anterior.")}
+          ${tituloComResumo("t-saude", "Saúde financeira", "Os números que dizem se a família está <strong>crescendo</strong> ou <strong>se apertando</strong>: endividamento, colchão (reserva e abastança), crescimento e patrimônio, cada um com a conta que o formou, uma cor (verde, amarelo, vermelho) e, ao lado, o <strong>ano anterior</strong>. Tudo é calculado do extrato, dos Registros, do Endividamento, dos Investimentos e dos Bens; nada é digitado aqui, a não ser as metas e a base do ano anterior.")}
         </div>
         <button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button>
       </header>
@@ -2008,7 +2158,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-balanco", "Balanço", "O retrato de <strong>hoje</strong>: o que a família <strong>tem</strong> (ativo) e o que <strong>deve</strong> (passivo). A diferença é o <strong>patrimônio líquido</strong> — quanto sobraria se vendesse tudo e pagasse tudo. Os dois lados sempre fecham: ativo = passivo + patrimônio líquido. Nada é digitado aqui: tudo vem das contas, dos <strong>Investimentos</strong>, dos <strong>Bens</strong> e do <strong>Endividamento</strong>, com a mesma conta da Saúde financeira. <strong>Circulante</strong> é o que vira dinheiro (ou vence) em até 12 meses; <strong>não circulante</strong> é o resto. Entre os investimentos, só a <strong>reserva de emergência</strong> conta como circulante: marque em Investimentos o que tem liquidez diária. Bem sem avaliação e investimento sem saldo ficam de fora, e a tela avisa.")}
+          ${tituloComResumo("t-balanco", "Balanço", "O retrato de <strong>hoje</strong>: o que a família <strong>tem</strong> (ativo) e o que <strong>deve</strong> (passivo). A diferença é o <strong>patrimônio líquido</strong>: quanto sobraria se vendesse tudo e pagasse tudo. Os dois lados sempre fecham: ativo = passivo + patrimônio líquido. Nada é digitado aqui: tudo vem das contas, dos <strong>Investimentos</strong>, dos <strong>Bens</strong> e do <strong>Endividamento</strong>, com a mesma conta da Saúde financeira. <strong>Circulante</strong> é o que vira dinheiro (ou vence) em até 12 meses; <strong>não circulante</strong> é o resto. Entre os investimentos, só a <strong>reserva de emergência</strong> conta como circulante: marque em Investimentos o que tem liquidez diária. Bem sem avaliação e investimento sem saldo ficam de fora, e a tela avisa.")}
         </div>
         <button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button>
       </header>
@@ -2023,7 +2173,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-analises", "Análises", "Cenários <strong>&ldquo;e se...&rdquo;</strong> para decidir com números: vender um terreno e aplicar o dinheiro (a 1,5% ao mês, num CDB, num fundo), quitar uma dívida em vez de aplicar, dividir o dinheiro entre as duas coisas. Cada <strong>alternativa</strong> é simulada mês a mês e comparada com as outras, <strong>já descontados os custos da venda, o imposto e o que sai do seu bolso</strong> (parcelas, aportes). Você vê o patrimônio em cada prazo, o valor em dinheiro de hoje (descontada a inflação) e a <strong>taxa de empate</strong>: quanto a aplicação precisa render para compensar. Os bens e as dívidas vêm do app; as taxas e o CDI são suposições suas (dá para buscar a Selic e o IPCA no Banco Central). Tudo é salvo sozinho. É uma simulação para pensar — confirme impostos com seu contador.")}
+          ${tituloComResumo("t-analises", "Análises", "Cenários <strong>&ldquo;e se...&rdquo;</strong> para decidir com números: vender um terreno e aplicar o dinheiro (a 1,5% ao mês, num CDB, num fundo), quitar uma dívida em vez de aplicar, dividir o dinheiro entre as duas coisas. Cada <strong>alternativa</strong> é simulada mês a mês e comparada com as outras, <strong>já descontados os custos da venda, o imposto e o que sai do seu bolso</strong> (parcelas, aportes). Você vê o patrimônio em cada prazo, o valor em dinheiro de hoje (descontada a inflação) e a <strong>taxa de empate</strong>: quanto a aplicação precisa render para compensar. Os bens e as dívidas vêm do app; as taxas e o CDI são suposições suas (dá para buscar a Selic e o IPCA no Banco Central). Tudo é salvo sozinho. É uma simulação para pensar. Confirme os impostos com seu contador.")}
         </div>
         <button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button>
       </header>
@@ -2035,7 +2185,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-fluxo", "Fluxo de caixa", "O que entrou, o que saiu e o que ainda vem — realizado e previsto na mesma tabela. Clique num valor para ver o que o formou. Cada valor realizado é um botão: clique para ver os lançamentos daquele mês e categoria. Valores em <em>itálico</em> são <strong>previstos</strong>, vindos dos Registros — aparecem nos meses que ainda não chegaram, junto com o saldo projetado.")}
+          ${tituloComResumo("t-fluxo", "Fluxo de caixa", "O que entrou, o que saiu e o que ainda vem, com o realizado e o previsto na mesma tabela. Clique num valor para ver os lançamentos daquele mês e categoria. Valores em <em>itálico</em> são <strong>previstos</strong>: vêm dos Registros e do Endividamento (e dos Projetos, se a caixa estiver marcada) e aparecem nos meses que ainda não chegaram, junto com o saldo projetado.")}
         </div>
         <div class="acoes-cabeca"><button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button><button type="button" class="icone-ajuda" id="fluxo-ajuda" title="Como esta conta é feita" aria-label="Como esta conta é feita">?</button></div>
       </header>
@@ -2050,6 +2200,8 @@ const html = `<title>Gestão Família</title>
             <option value="7-frente">Próximos 7d</option>
             <option value="30-frente">Próximos 30d</option>
             <option value="90-frente">Próximos 90d</option>
+            <option value="6-frente">Próximos 6 meses</option>
+            <option value="12-frente">Próximos 12 meses</option>
             <option value="personalizado">Personalizado</option>
           </select>
         </div>
@@ -2091,6 +2243,7 @@ const html = `<title>Gestão Família</title>
           <li><strong>Um lançamento dá baixa em um registro só.</strong> Se dois registros disputarem o mesmo Pix, quem tem a variação de valor mais apertada fica com ele, e o outro aparece marcado como "disputado".</li>
           <li><strong>Pagamento em dinheiro marcado à mão não entra aqui</strong>, porque o saque que gerou esse dinheiro já aparece no extrato. Contar os dois seria somar o mesmo dinheiro duas vezes.</li>
           <li><strong>Possível cópia não entra em soma nenhuma</strong> (ver Qualidade dos dados).</li>
+          <li><strong>Projetos (caixa "Incluir projetos" marcada).</strong> O que já foi pago e você vinculou a um projeto sai da categoria e aparece no grupo Projetos, na mesma coluna. O que ainda falta pagar de cada item entra como previsão, na data dele. Valor igual no extrato e no item só deixa de contar duas vezes quando você vincula o lançamento ao item do projeto. Compra no cartão vinculada abate o item, mas o dinheiro só aparece no Fluxo pela fatura.</li>
         </ol>
         </div>
       </div>
@@ -2129,7 +2282,7 @@ const html = `<title>Gestão Família</title>
           <p class="aviso aviso-erro" id="cat-estrutura-aviso" role="alert" hidden></p>
           <div class="campo-grupo"><label for="cat-estrutura-nome">Nome</label><input class="campo" id="cat-estrutura-nome" type="text" maxlength="40" placeholder="Ex.: Receitas"></div>
           <div class="form-grade">
-            <div class="campo-grupo" id="cat-estrutura-natureza-campo"><label for="cat-estrutura-natureza">Tipo financeiro</label><select class="campo" id="cat-estrutura-natureza"><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="investimento">Investimento — fora das despesas do DRE</option><option value="reembolso">Reembolso — dinheiro de passagem</option></select></div>
+            <div class="campo-grupo" id="cat-estrutura-natureza-campo"><label for="cat-estrutura-natureza">Tipo financeiro</label><select class="campo" id="cat-estrutura-natureza"><option value="receita">Receita</option><option value="despesa">Despesa</option><option value="investimento">Investimento (fora das despesas do DRE)</option><option value="reembolso">Reembolso (dinheiro de passagem)</option></select></div>
             <div class="campo-grupo"><label for="cat-estrutura-ordem">Ordem de exibição</label><input class="campo" id="cat-estrutura-ordem" type="number" min="0" max="2147483647" step="1"></div>
           </div>
           <p class="suave pequeno" id="cat-estrutura-dica"></p>
@@ -2269,11 +2422,11 @@ const html = `<title>Gestão Família</title>
               <div class="campo-grupo" id="f-data-grupo" hidden><label for="f-data" id="f-data-rotulo">Data do lançamento</label><input class="campo" id="f-data" type="date"></div>
               <div class="campo-grupo" id="f-dia-grupo"><label for="f-dia">Dia previsto</label><input class="campo" id="f-dia" type="number" min="1" max="31" placeholder="10"></div>
               <div class="campo-grupo" id="f-inicio-grupo"><label for="f-inicio">Começa em</label><input class="campo" id="f-inicio" type="month"></div>
-              <div class="campo-grupo" id="f-repeticoes-grupo"><label for="f-repeticoes">Quantas vezes se repete</label><input class="campo" id="f-repeticoes" type="number" min="1" max="600" placeholder="vazio = sempre"><span class="suave pequeno">Ex.: 3 para uma conta em 3 parcelas. Vazio repete todo mês, sem prazo — e você nunca precisa recriar o registro.</span></div>
+              <div class="campo-grupo" id="f-repeticoes-grupo"><label for="f-repeticoes">Quantas vezes se repete</label><input class="campo" id="f-repeticoes" type="number" min="1" max="600" placeholder="vazio = sempre"><span class="suave pequeno">Ex.: 3 para uma conta em 3 parcelas. Vazio repete todo mês, sem prazo, e você nunca precisa recriar o registro.</span></div>
             </div>
             <div class="form-acoes" id="f-feito-grupo" hidden>
               <label class="check" for="f-feito"><input type="checkbox" id="f-feito"> <span id="f-feito-texto">Já recebi</span></label>
-              <span class="suave pequeno">Marca o registro como pago nesta data, sem precisar de lançamento no extrato — para o que passou por uma conta que o app não enxerga.</span>
+              <span class="suave pequeno">Marca o registro como pago nesta data, sem precisar de lançamento no extrato. Serve para o que passou por uma conta que o app não enxerga.</span>
             </div>
             <div id="f-conciliacao">
               <div class="form-grade">
@@ -2309,45 +2462,129 @@ const html = `<title>Gestão Família</title>
     </section>
 
     <section class="vista" data-vista="projetos" aria-labelledby="t-projetos" hidden>
+      <style>
+        /* Projetos: o painel do extrato (as mesmas medidas do de Bens) e o que é só desta tela */
+        #projetos-extrato-corpo > .filtros { padding: 12px 18px; border-bottom: 1px solid var(--linha); align-items: end; }
+        #projetos-extrato .rolagem td.acao .acoes { flex-wrap: nowrap; align-items: center; }
+        #projetos-extrato .campo { min-width: 170px; }
+        #projetos-extrato-ajuda { margin: 0; padding: 12px 18px 0; }
+        #projetos-extrato-erro { margin: 0; padding: 8px 18px; }
+        #projetos-extrato-erro[hidden] { display: none; }
+        [data-vista="projetos"] .bloco.encerrado { opacity: 0.62; }
+        [data-vista="projetos"] .bloco.encerrado:hover, [data-vista="projetos"] .bloco.encerrado:focus-within { opacity: 1; }
+        [data-vista="projetos"] .bloco.recolhido > .numeros { border-bottom: 0; }
+        [data-vista="projetos"] .bloco > .aviso { margin: 0 18px 12px; }
+        [data-vista="projetos"] .projeto-progresso { display: grid; gap: 6px; padding: 0 18px 12px; }
+        [data-vista="projetos"] .projeto-barra { height: 8px; border-radius: 999px; background: var(--superficie-2); border: 1px solid var(--linha); overflow: hidden; }
+        [data-vista="projetos"] .projeto-barra > i { display: block; height: 100%; background: var(--acento); }
+        [data-vista="projetos"] .projeto-barra > i.passou { background: var(--critico); }
+        [data-vista="projetos"] .projeto-ver { display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 10px 18px 12px; }
+        [data-vista="projetos"] td .check { white-space: nowrap; }
+        @media (max-width: 760px) {
+          [data-vista="projetos"] .bloco-topo .acoes { justify-content: flex-start; }
+          [data-vista="projetos"] .botao { min-height: 40px; }
+          [data-vista="projetos"] .botao.pequeno { min-height: 36px; padding: 6px 11px; }
+          /* O pop-up cabe acima da barra de baixo do app (66 px), com o botão Salvar à vista */
+          #form-projeto .modal-caixa, #form-item .modal-caixa { max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); }
+          /* A lista de lançamentos vira uma pilha de cartões: data e valor, o texto, os botões. Quatro colunas com botões
+             não cabem em 393 px, e rolar a tabela para o lado esconderia o botão Vincular. */
+          #projetos-sugestoes .rolagem { max-height: none; overflow: visible; }
+          #projetos-sugestoes table, #projetos-sugestoes tbody { display: block; }
+          #projetos-sugestoes thead { display: none; }
+          #projetos-sugestoes tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 12px 14px; border-bottom: 1px solid var(--linha); }
+          #projetos-sugestoes td { display: block; padding: 0; border: 0; min-width: 0; }
+          #projetos-sugestoes td:nth-child(1) { grid-area: 1 / 1; color: var(--suave); font-size: 13px; }
+          #projetos-sugestoes td:nth-child(3) { grid-area: 1 / 2; text-align: right; }
+          #projetos-sugestoes td:nth-child(2) { grid-area: 2 / 1 / 3 / 3; }
+          #projetos-sugestoes td:nth-child(4) { grid-area: 3 / 1 / 4 / 3; }
+          #projetos-sugestoes td.acao .acoes { justify-content: flex-end; flex-wrap: wrap; }
+          #projetos-extrato .campo { min-width: 0; width: 100%; min-height: 42px; }
+        }
+      </style>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Base do fluxo de caixa</p>
-          ${tituloComResumo("t-projetos", "Projetos", "O que é grande e tem data: obra, reforma, viagem. Só entra no Fluxo e no DRE se você marcar. Item marcado como <strong>pago</strong> sai da previsão: o pagamento dele já está no extrato, e contar os dois seria somar o mesmo dinheiro duas vezes. Projeto com status <strong>Concluído</strong> também deixa de prever. No Fluxo de caixa o item entra na <strong>data</strong> prevista; no DRE, no <strong>mês</strong> dela.")}
+          ${tituloComResumo("t-projetos", "Projetos", "Para o que é grande e tem data: obra, reforma, viagem. Cada projeto tem os <strong>itens planejados</strong> (o que vai custar, com valor e data) e os <strong>lançamentos vinculados</strong> (o que já saiu ou entrou no extrato). Com os dois você vê quanto já gastou, quanto falta e se o projeto vai passar do planejado. No <strong>Fluxo de caixa</strong>, com “Incluir projetos” marcado, o que já foi pago aparece no projeto, no lugar da categoria, e só o que ainda falta pagar entra como previsão: o mesmo dinheiro nunca conta duas vezes. Item <strong>quitado</strong> (pago por fora do extrato) também sai da previsão, e projeto <strong>Concluído</strong> deixa de prever. Projeto que já aconteceu (um casamento, por exemplo) pode ter só os lançamentos vinculados, sem itens: a tela mostra quanto foi gasto. Parcela de financiamento fica no Endividamento: não repita no projeto.")}
         </div>
         <button type="button" class="botao primario" id="projeto-novo">Novo projeto</button>
       </header>
       <p class="aviso" id="projetos-aviso" role="status" hidden></p>
+      <p class="aviso aviso-erro" id="projetos-erro" role="alert" hidden></p>
       <dl class="numeros" id="projetos-resumo"></dl>
-      <form class="formulario" id="form-projeto" hidden>
-        <h2 id="form-projeto-titulo">Novo projeto</h2>
-        <div class="form-grade">
-          <div class="campo-grupo"><label for="p-nome">Nome</label><input class="campo" id="p-nome" autocomplete="off" placeholder="ex.: Casa do sítio"></div>
-          <div class="campo-grupo"><label for="p-tipo">Tipo</label><select class="campo" id="p-tipo"></select></div>
-          <div class="campo-grupo"><label for="p-status">Status</label><select class="campo" id="p-status"></select></div>
-          <div class="campo-grupo largo"><label for="p-obs">Observação</label><input class="campo" id="p-obs" autocomplete="off" placeholder="o que for útil lembrar: prazo, responsável, orçamento aprovado…"></div>
+
+      <div class="bloco" id="projetos-extrato" hidden>
+        <div class="bloco-topo">
+          <div><strong>Do extrato, para vincular</strong> <span class="meta" id="projetos-extrato-meta"></span></div>
+          <div class="acoes"><button type="button" class="botao pequeno" id="projetos-extrato-alternar" aria-expanded="false" aria-controls="projetos-extrato-corpo">Conferir</button></div>
         </div>
-        <div class="form-acoes">
-          <button type="submit" class="botao primario">Salvar projeto</button>
-          <button type="button" class="botao fantasma" id="p-cancelar">Cancelar</button>
-          <span class="erro-form" id="p-erro" role="alert"></span>
+        <div id="projetos-extrato-corpo" hidden>
+          <p class="suave pequeno" id="projetos-extrato-ajuda">Escolha no extrato o que já foi gasto ou recebido num projeto. Compras no cartão também valem: elas abatem o item, e o dinheiro só aparece no Fluxo pela fatura. No Fluxo de caixa, com “Incluir projetos” marcado, os valores de conta saem das categorias e passam a aparecer só no projeto. Escolha o item de cada saída para ela abater a previsão. O que já está num investimento, num bem ou num empréstimo precisa sair de lá antes.</p>
+          <div class="filtros">
+            <div class="campo-grupo">
+              <span class="suave pequeno" id="projetos-modo-rotulo">Mostrar</span>
+              <div class="segmento" role="group" aria-labelledby="projetos-modo-rotulo" id="projetos-modo">
+                <button type="button" data-projetos-modo="saidas" aria-pressed="true">Saídas</button>
+                <button type="button" data-projetos-modo="entradas" aria-pressed="false">Entradas</button>
+                <button type="button" data-projetos-modo="todos" aria-pressed="false">Todos</button>
+              </div>
+            </div>
+            <div class="campo-grupo"><label for="projetos-extrato-busca">Buscar no extrato</label><input class="campo" id="projetos-extrato-busca" type="search" autocomplete="off" placeholder="Texto, data ou valor, ex.: hotel ou 1000"></div>
+            <div class="campo-grupo"><label for="projetos-extrato-de">De</label><input class="campo" id="projetos-extrato-de" type="date"></div>
+            <div class="campo-grupo"><label for="projetos-extrato-ate">Até</label><input class="campo" id="projetos-extrato-ate" type="date"></div>
+            <button type="button" class="botao pequeno fantasma" id="projetos-extrato-limpar-datas" hidden>Limpar período</button>
+          </div>
+          <div class="vincular-lote" id="projetos-lote">
+            <div class="campo-grupo"><label for="projetos-lote-projeto">Vincular ao projeto</label><select class="campo" id="projetos-lote-projeto"></select></div>
+            <div class="campo-grupo"><label for="projetos-lote-item">Item (só nas saídas)</label><select class="campo" id="projetos-lote-item"></select></div>
+            <button type="button" class="botao primario" id="projetos-lote-vincular" disabled>Vincular marcados</button>
+            <span class="suave pequeno" id="projetos-lote-texto" role="status">Escolha o projeto e marque os lançamentos.</span>
+          </div>
+          <p class="erro-form" id="projetos-extrato-erro" role="alert" hidden></p>
+          <div id="projetos-sugestoes"></div>
         </div>
-      </form>
-      <form class="formulario" id="form-item" hidden>
-        <h2 id="form-item-titulo">Novo item</h2>
-        <div class="form-grade">
-          <div class="campo-grupo largo"><label for="i-descricao">Item</label><input class="campo" id="i-descricao" autocomplete="off" placeholder="ex.: fundação, telhado, passagens aéreas"></div>
-          <div class="campo-grupo"><label for="i-valor">Valor previsto</label><input class="campo valor-brl" id="i-valor" inputmode="decimal" placeholder="12.500,00"></div>
-          <div class="campo-grupo"><label for="i-data">Data prevista</label><input class="campo" id="i-data" type="date"></div>
-          <div class="campo-grupo"><label for="i-categoria">Categoria</label><select class="campo" id="i-categoria"></select></div>
-        </div>
-        <div class="form-acoes">
-          <label class="check" for="i-pago"><input type="checkbox" id="i-pago"> Já foi pago</label>
-          <button type="submit" class="botao primario">Salvar item</button>
-          <button type="button" class="botao fantasma" id="i-cancelar">Cancelar</button>
-          <span class="erro-form" id="i-erro" role="alert"></span>
-        </div>
-      </form>
+      </div>
+
       <div class="lista-bancos" id="projetos-lista"></div>
+
+      <form class="modal" id="form-projeto" novalidate role="dialog" aria-modal="true" aria-labelledby="form-projeto-titulo" hidden>
+        <div class="modal-caixa estreita">
+          <header class="modal-topo"><h2 id="form-projeto-titulo">Novo projeto</h2><button type="button" class="botao fantasma" id="p-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <div class="form-grade">
+              <div class="campo-grupo largo"><label for="p-nome">Nome</label><input class="campo" id="p-nome" autocomplete="off" maxlength="120" placeholder="ex.: Viagem de janeiro"></div>
+              <div class="campo-grupo"><label for="p-tipo">Tipo</label><select class="campo" id="p-tipo"></select></div>
+              <div class="campo-grupo"><label for="p-status">Status</label><select class="campo" id="p-status"></select></div>
+              <div class="campo-grupo largo"><label for="p-obs">Observação</label><input class="campo" id="p-obs" autocomplete="off" placeholder="o que for útil lembrar: prazo, responsável, orçamento aprovado…"></div>
+            </div>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="p-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="p-cancelar">Cancelar</button><button type="submit" class="botao primario">Salvar projeto</button></div>
+          </footer>
+        </div>
+      </form>
+
+      <form class="modal" id="form-item" novalidate role="dialog" aria-modal="true" aria-labelledby="form-item-titulo" hidden>
+        <div class="modal-caixa">
+          <header class="modal-topo"><h2 id="form-item-titulo">Novo item</h2><button type="button" class="botao fantasma" id="i-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <div class="form-grade">
+              <div class="campo-grupo largo"><label for="i-descricao">Item</label><input class="campo" id="i-descricao" autocomplete="off" maxlength="120" placeholder="ex.: fundação, telhado, passagens aéreas"></div>
+              <div class="campo-grupo"><label for="i-valor">Valor previsto</label><input class="campo valor-brl" id="i-valor" inputmode="decimal" autocomplete="off" placeholder="12.500,00"></div>
+              <div class="campo-grupo"><label for="i-data">Data prevista</label><input class="campo" id="i-data" type="date"></div>
+              <div class="campo-grupo largo"><label for="i-categoria">Categoria</label><select class="campo" id="i-categoria"></select></div>
+              <div class="campo-grupo largo">
+                <label class="check" for="i-pago"><input type="checkbox" id="i-pago"> Já foi pago por fora do extrato</label>
+                <p class="suave pequeno">Marque se o pagamento não aparece nas contas ligadas (dinheiro, por exemplo). O item deixa de entrar na previsão do Fluxo. Se o pagamento está no extrato, vincule o lançamento: aí o projeto mostra o gasto real.</p>
+              </div>
+            </div>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="i-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="i-cancelar">Cancelar</button><button type="submit" class="botao primario">Salvar item</button></div>
+          </footer>
+        </div>
+      </form>
     </section>
 
     <section class="vista" data-vista="registros" aria-labelledby="t-registros" hidden>
@@ -2431,7 +2668,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Patrimônio</p>
-          ${tituloComResumo("t-invest", "Investimentos", "O que a casa tem aplicado, separado por <strong>pessoa</strong>. Dentro de cada pessoa ficam os <strong>investimentos</strong> — corretora, exterior, CDB, consórcio ainda não contemplado, empréstimo com juros — e dentro de cada um os aportes, os resgates e o saldo (do banco ou conferido por você). Os aportes e resgates vêm do extrato quando você os vincula, ou você lança à mão.")}
+          ${tituloComResumo("t-invest", "Investimentos", "O que a casa tem aplicado, separado por <strong>pessoa</strong>. Dentro de cada pessoa ficam os <strong>investimentos</strong> (corretora, exterior, CDB, consórcio ainda não contemplado, empréstimo com juros) e, dentro de cada um, os aportes, os resgates e o saldo (do banco ou conferido por você). Os aportes e resgates vêm do extrato quando você os vincula, ou você lança à mão.")}
         </div>
         <button type="button" class="botao primario" id="inv-novo">Novo investimento</button>
       </header>
@@ -2642,7 +2879,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Patrimônio</p>
-          ${tituloComResumo("t-bens", "Bens", "O que a família tem além do que está aplicado: imóveis, terrenos e veículos. Cada bem tem o <strong>valor de hoje</strong> — que você atualiza à mão, com histórico (a tela avisa quando a avaliação passa de 12 meses) —, pode apontar para o financiamento cadastrado no Endividamento, e então mostra o <strong>valor líquido</strong> (valor menos o saldo devedor), e recebe os <strong>custos de manter</strong> (IPTU, IPVA, seguro…) quando você vincula os lançamentos do extrato. Vincular um lançamento a um bem <strong>não muda o Fluxo, o DRE nem o Dash</strong>: o gasto continua sendo despesa. Bem encerrado (vendido ou baixado) fica fora dos totais.")}
+          ${tituloComResumo("t-bens", "Bens", "O que a família tem além do que está aplicado: imóveis, terrenos e veículos. Cada bem tem o <strong>valor de hoje</strong>, que você atualiza à mão e fica com histórico (a tela avisa quando a avaliação passa de 12 meses). Ele pode apontar para o financiamento cadastrado no Endividamento, e aí a tela mostra o <strong>valor líquido</strong> (valor menos o saldo devedor). Os <strong>custos de manter</strong> (IPTU, IPVA, seguro…) entram quando você vincula os lançamentos do extrato. Vincular um lançamento a um bem <strong>não muda o Fluxo, o DRE nem o Dash</strong>: o gasto continua sendo despesa. Bem encerrado (vendido ou baixado) fica fora dos totais.")}
         </div>
         <div class="acoes-cabeca">
           <button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button>
@@ -2663,7 +2900,7 @@ const html = `<title>Gestão Família</title>
           <div class="acoes"><button type="button" class="botao pequeno" id="bens-extrato-alternar" aria-expanded="false" aria-controls="bens-extrato-corpo">Conferir</button></div>
         </div>
         <div id="bens-extrato-corpo" hidden>
-          <p class="suave pequeno" id="bens-extrato-ajuda">Escolha, em cada saída da conta, de qual bem é o gasto e que tipo de custo ele é (IPTU, IPVA, seguro…). <strong>Vincular não muda o Fluxo, o DRE nem o Dash</strong>: o gasto continua sendo despesa, como sempre — o vínculo só soma o custo ao bem. Compras no cartão e transferências não aparecem aqui. Um lançamento que já está num investimento ou num empréstimo precisa sair de lá antes.</p>
+          <p class="suave pequeno" id="bens-extrato-ajuda">Escolha, em cada saída da conta, de qual bem é o gasto e que tipo de custo ele é (IPTU, IPVA, seguro…). <strong>Vincular não muda o Fluxo, o DRE nem o Dash</strong>: o gasto continua sendo despesa, como sempre. O vínculo só soma o custo ao bem. Compras no cartão e transferências não aparecem aqui. Um lançamento que já está num investimento ou num empréstimo precisa sair de lá antes.</p>
           <div class="filtros">
             <div class="campo-grupo">
               <span class="suave pequeno" id="bens-modo-rotulo">Mostrar</span>
@@ -2737,7 +2974,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-comissoes", "Comissões", "O que você gerou de negócio para cada empresa e quanto da comissão já recebeu. Cadastre a <strong>empresa</strong>, lance cada <strong>negócio</strong> (setup + mensalidades, e a porcentagem de comissão <em>daquele</em> negócio) e registre cada <strong>recebimento</strong> — a comissão costuma chegar picada, então um negócio pode ter vários. Esta tela é um controle à parte: não entra no Fluxo de caixa, no DRE nem em Registros.")}
+          ${tituloComResumo("t-comissoes", "Comissões", "O que você gerou de negócio para cada empresa e quanto da comissão já recebeu. Cadastre a <strong>empresa</strong>, lance cada <strong>negócio</strong> (setup + mensalidades, e a porcentagem de comissão <em>daquele</em> negócio) e registre cada <strong>recebimento</strong>: a comissão costuma chegar picada, então um negócio pode ter vários. Esta tela é um controle à parte: não entra no Fluxo de caixa, no DRE nem em Registros.")}
         </div>
         <button type="button" class="botao primario" id="com-nova-empresa">Nova empresa</button>
       </header>
@@ -2822,7 +3059,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-dividas", "Endividamento", "Tudo o que a família deve, somado por prazo. Os <strong>cartões</strong> vêm do banco (Open Finance), abertos fatura a fatura — você não precisa cadastrar nada. Os <strong>empréstimos</strong> e <strong>financiamentos</strong> são seus: cadastre o contrato, e o dinheiro que ele depositou na conta deixa de contar como receita.")}
+          ${tituloComResumo("t-dividas", "Endividamento", "Tudo o que a família deve, somado por prazo. Os <strong>cartões</strong> vêm do banco (Open Finance), abertos fatura a fatura, então você não precisa cadastrar nada. Os <strong>empréstimos</strong> e <strong>financiamentos</strong> são seus: cadastre o contrato, e o dinheiro que ele depositou na conta deixa de contar como receita.")}
         </div>
         <button type="button" class="botao primario" id="divida-nova">Nova dívida</button>
       </header>
@@ -2857,8 +3094,8 @@ const html = `<title>Gestão Família</title>
                 <h3>Quem</h3>
                 <div class="form-grade">
                   <div class="campo-grupo" data-campo="credor"><label for="d-credor" id="d-credor-rotulo">Credor</label><input class="campo" id="d-credor" autocomplete="off" maxlength="80" placeholder="ex.: Caixa Econômica"></div>
-                  <div class="campo-grupo" data-campo="pessoas"><label>Pessoa</label><div class="pessoas-marcas" id="d-pessoas"></div><span class="suave pequeno">de quem é a dívida — marque as duas se for dos dois</span></div>
-                  <div class="campo-grupo" data-campo="bem"><label for="d-bem">Bem</label><input class="campo" id="d-bem" list="d-bens" autocomplete="off" maxlength="80" placeholder="ex.: Casa, Sítio"><datalist id="d-bens"></datalist><span class="suave pequeno">o que esta dívida comprou — a tela Bens liga por este nome</span></div>
+                  <div class="campo-grupo" data-campo="pessoas"><label>Pessoa</label><div class="pessoas-marcas" id="d-pessoas"></div><span class="suave pequeno">de quem é a dívida (marque as duas se for dos dois)</span></div>
+                  <div class="campo-grupo" data-campo="bem"><label for="d-bem">Bem</label><input class="campo" id="d-bem" list="d-bens" autocomplete="off" maxlength="80" placeholder="ex.: Casa, Sítio"><datalist id="d-bens"></datalist><span class="suave pequeno">o que esta dívida comprou (a tela Bens liga por este nome)</span></div>
                   <div class="campo-grupo" data-campo="contrato"><label for="d-contrato">Número do contrato</label><input class="campo" id="d-contrato" autocomplete="off" maxlength="40" placeholder="1234567890"></div>
                 </div>
               </div>
@@ -2905,7 +3142,7 @@ const html = `<title>Gestão Família</title>
                 <h3>Financiamento</h3>
                 <p class="largo suave pequeno">O que só ele tem. Seguro e taxa operacional já estão dentro da prestação; o sistema SAC faz a prestação diminuir todo mês.</p>
                 <div class="form-grade">
-                  <div class="campo-grupo" data-campo="sistema"><label for="d-sistema">Sistema de amortização</label><select class="campo" id="d-sistema"><option value="">Parcela fixa</option><option value="SAC">SAC — a prestação diminui</option></select></div>
+                  <div class="campo-grupo" data-campo="sistema"><label for="d-sistema">Sistema de amortização</label><select class="campo" id="d-sistema"><option value="">Parcela fixa</option><option value="SAC">SAC (a prestação diminui)</option></select></div>
                   <div class="campo-grupo" data-campo="seguro"><label for="d-seguro">Seguro mensal (R$)</label><input class="campo valor-brl" id="d-seguro" inputmode="decimal" autocomplete="off" placeholder="53,83"></div>
                   <div class="campo-grupo" data-campo="taxa-oper"><label for="d-taxa-oper">Taxa operacional mensal (R$)</label><input class="campo valor-brl" id="d-taxa-oper" inputmode="decimal" autocomplete="off" placeholder="25,00"></div>
                 </div>
@@ -2913,7 +3150,7 @@ const html = `<title>Gestão Família</title>
 
               <div class="bloco-form" data-bloco="consorcio">
                 <h3>Consórcio</h3>
-                <p class="largo suave pequeno">O custo da cota: a taxa de administração e o fundo de reserva são percentuais do crédito, diluídos no prazo — não são juros.</p>
+                <p class="largo suave pequeno">O custo da cota: a taxa de administração e o fundo de reserva são percentuais do crédito, diluídos no prazo, e não são juros.</p>
                 <div class="form-grade">
                   <div class="campo-grupo" data-campo="taxa-adm"><label for="d-taxa-adm">Taxa de administração (%)</label><input class="campo" id="d-taxa-adm" inputmode="decimal" autocomplete="off" placeholder="22"></div>
                   <div class="campo-grupo" data-campo="fundo-reserva"><label for="d-fundo-reserva">Fundo de reserva (%)</label><input class="campo" id="d-fundo-reserva" inputmode="decimal" autocomplete="off" placeholder="1"></div>
@@ -2935,7 +3172,7 @@ const html = `<title>Gestão Família</title>
                   <div class="campo-grupo" data-campo="juros-escolha" id="d-juros-valor-grupo"><label for="d-juros-valor" id="d-juros-valor-rotulo">Taxa ao mês (%)</label><input class="campo" id="d-juros-valor" inputmode="decimal" autocomplete="off" placeholder="2,00"></div>
                 </div>
                 <details class="detalhes-form" data-campo="juros-banco" id="d-custo-banco">
-                  <summary>Custo do contrato — copie do app do banco (a Pluggy não traz taxa nem juros)</summary>
+                  <summary>Custo do contrato: copie do app do banco (a Pluggy não traz taxa nem juros)</summary>
                   <div class="form-grade">
                     <div class="campo-grupo"><label for="d-taxa-mes">Juros ao mês (%)</label><input class="campo" id="d-taxa-mes" inputmode="decimal" autocomplete="off" placeholder="2,43"></div>
                     <div class="campo-grupo"><label for="d-taxa-ano">Juros ao ano (%)</label><input class="campo" id="d-taxa-ano" inputmode="decimal" autocomplete="off" placeholder="22,75"></div>
@@ -2957,7 +3194,7 @@ const html = `<title>Gestão Família</title>
                   <div class="campo-grupo" data-campo="ja-pago"><label for="d-ja-pago">Já pago (R$)</label><input class="campo valor-brl" id="d-ja-pago" inputmode="decimal" autocomplete="off" placeholder="7.500,00"><span class="suave pequeno" id="d-ja-pago-ajuda">tudo o que já saiu do seu bolso, entrada incluída</span></div>
                   <div class="campo-grupo" data-campo="saldo"><label for="d-saldo">Saldo devedor (R$)</label><input class="campo valor-brl" id="d-saldo" inputmode="decimal" placeholder="12.000,00"><span class="suave pequeno">vazio: o app calcula sozinho (o que falta pagar) e refaz todo dia</span></div>
                   <div class="campo-grupo largo" data-campo="faturas" id="d-faturas-grupo"><label for="d-faturas">Faturas que o banco mostra</label><textarea class="campo" id="d-faturas" rows="9" spellcheck="false" placeholder="11/2026 1.769,57&#10;12/2026 939,65&#10;01/2027 939,65"></textarea><span class="suave pequeno">Uma por linha: mês/ano e valor. Preenchido, vale no lugar do cálculo automático (a dívida do cartão passa a ser a soma delas) e entra na previsão do Fluxo. Vazio, volta ao automático.</span></div>
-                  <label class="largo" data-campo="fora-fluxo"><input type="checkbox" id="d-fora-fluxo"> <span id="d-fora-fluxo-rotulo">Não projetar esta parcela no Fluxo — ela já é um registro em Registros, ou é descontada em folha e não sai da conta</span></label>
+                  <label class="largo" data-campo="fora-fluxo"><input type="checkbox" id="d-fora-fluxo"> <span id="d-fora-fluxo-rotulo">Não projetar esta parcela no Fluxo (ela já é um registro em Registros, ou é descontada em folha e não sai da conta)</span></label>
                 </div>
               </div>
 
@@ -3018,7 +3255,7 @@ const html = `<title>Gestão Família</title>
       <section class="secao" id="config-secao-bancos" aria-labelledby="t-bancos" hidden>
         <header class="cabeca com-acao">
           <div>
-            ${tituloComResumo("t-bancos", "Conexão Bancos", "A credencial da Pluggy de cada pessoa e os bancos conectados. Ela <strong>vai para o servidor e nunca volta</strong> — a tela só mostra o Client ID mascarado. O plano gratuito dá <strong>5 conexões por pessoa</strong>.", "h2")}
+            ${tituloComResumo("t-bancos", "Conexão Bancos", "A credencial da Pluggy de cada pessoa e os bancos conectados. Ela <strong>vai para o servidor e nunca volta</strong>: a tela só mostra o Client ID mascarado. O plano gratuito dá <strong>5 conexões por pessoa</strong>.", "h2")}
           </div>
           <button type="button" class="botao primario" id="bancos-coletar" hidden>Puxar dados agora</button>
         </header>
@@ -3027,7 +3264,7 @@ const html = `<title>Gestão Família</title>
       </section>
       <section class="secao" id="config-secao-pessoas" aria-labelledby="t-pessoas" hidden>
         <header class="cabeca">
-          ${tituloComResumo("t-pessoas", "Pessoas", "Quem tem dinheiro nesta casa. É esta lista que aparece nos filtros das telas e na hora de cadastrar a conta da Pluggy — assim a mesma pessoa não vira duas por causa de como cada banco escreve o nome.", "h2")}
+          ${tituloComResumo("t-pessoas", "Pessoas", "Quem tem dinheiro nesta casa. É esta lista que aparece nos filtros das telas e na hora de cadastrar a conta da Pluggy. Assim a mesma pessoa não vira duas por causa de como cada banco escreve o nome.", "h2")}
         </header>
         <form class="bloco" id="form-pessoa">
           <div class="form-grade">
@@ -3070,7 +3307,7 @@ const html = `<title>Gestão Família</title>
       </section>
       <section class="secao" id="config-secao-memoria" aria-labelledby="t-memoria">
         <header>
-          ${tituloComResumo("t-memoria", "Categorização Registros", "Ao categorizar um lançamento nos Registros, o app <strong>guarda o estabelecimento</strong> pelo CNPJ/CPF e os próximos daquele lugar já nascem categorizados. <strong>Reclassificar</strong> aplica o nome e a categoria a todos os lançamentos daquele lugar. <strong>Recorrente = Sim</strong> faz o estabelecimento aparecer nos próximos meses e entrar na previsão do Fluxo. Registros que o extrato não alcança (criados de um débito escrito de outro jeito, encerrados ou únicos) aparecem na lista também — filtro <strong>Registros sem lançamento do extrato</strong> — e a categoria deles vale para todos os meses.", "h2")}
+          ${tituloComResumo("t-memoria", "Categorização Registros", "Ao categorizar um lançamento nos Registros, o app <strong>guarda o estabelecimento</strong> pelo CNPJ/CPF e os próximos daquele lugar já nascem categorizados. <strong>Reclassificar</strong> aplica o nome e a categoria a todos os lançamentos daquele lugar. <strong>Recorrente = Sim</strong> faz o estabelecimento aparecer nos próximos meses e entrar na previsão do Fluxo. Registros que o extrato não alcança (criados de um débito escrito de outro jeito, encerrados ou únicos) aparecem na lista também (filtro <strong>Registros sem lançamento do extrato</strong>), e a categoria deles vale para todos os meses.", "h2")}
           <p class="suave pequeno" id="memoria-contagem"></p>
         </header>
         <div class="filtros">
@@ -3178,7 +3415,7 @@ const html = `<title>Gestão Família</title>
       </section>
       <section class="secao" aria-labelledby="t-semPar">
         <header>
-          ${tituloComResumo("t-semPar", "Transferências sem a outra perna", "Saiu de uma conta sua para você mesmo e <strong>não achamos a entrada correspondente</strong> (ou o contrário) — em geral, a conta do outro lado não está ligada ao app. Para o que o app enxerga o dinheiro saiu (ou entrou): conta como saída (ou entrada), aparece em Registros e entra no Fluxo como \"Transferência saída/entrada\" até você dar outra categoria. Havendo candidato provável, ele aparece ao lado.", "h2")}
+          ${tituloComResumo("t-semPar", "Transferências sem a outra perna", "Saiu de uma conta sua para você mesmo e <strong>não achamos a entrada correspondente</strong> (ou o contrário). Em geral, a conta do outro lado não está ligada ao app. Do ponto de vista do app, o dinheiro saiu (ou entrou): conta como saída (ou entrada), aparece em Registros e entra no Fluxo como \"Transferência saída/entrada\" até você dar outra categoria. Se houver um candidato provável, ele aparece ao lado.", "h2")}
           <p class="suave pequeno">${sugestoesPar.length} perna(s) sem par · ${sugestoesPar.filter((x) => x.par).length} com candidato provável (até 10 dias e 1% de diferença)</p>
         </header>
         ${sugestoesPar.length
@@ -3201,14 +3438,14 @@ const html = `<title>Gestão Família</title>
       </section>
       <section class="secao" aria-labelledby="t-buracos">
         <header>
-          ${tituloComResumo("t-buracos", "Buracos no extrato", "Meses inteiros <strong>sem nenhum lançamento</strong> no meio de um período com movimento. O mês aparece zerado como se nada tivesse acontecido — confira antes de acreditar.", "h2")}
+          ${tituloComResumo("t-buracos", "Buracos no extrato", "Meses inteiros <strong>sem nenhum lançamento</strong> no meio de um período com movimento. O mês aparece zerado como se nada tivesse acontecido. Confira antes de acreditar.", "h2")}
         </header>
         ${htmlBuracos}
         ${htmlContasSemNada}
       </section>
       <div class="achados">
-        <article class="achado atencao"><h3>Buraco no extrato</h3><p>Pode ser conta parada ou histórico que a integração não trouxe. Confira no app do banco; se houver movimento, lance em Registros — o Meu Pluggy não refaz histórico antigo.</p></article>
-        <article class="achado critico"><h3>Possível cópia</h3><p>Registro igual a outro em data ao segundo, valor, descrição e fatura, só com ID diferente. Pode ser duplicação da integração ou cobrança real repetida — por isso a tela não esconde nada por padrão.</p></article>
+        <article class="achado atencao"><h3>Buraco no extrato</h3><p>Pode ser conta parada ou histórico que a integração não trouxe. Confira no app do banco; se houver movimento, lance em Registros, porque o Meu Pluggy não refaz histórico antigo.</p></article>
+        <article class="achado critico"><h3>Possível cópia</h3><p>Registro igual a outro em data ao segundo, valor, descrição e fatura, só com ID diferente. Pode ser duplicação da integração ou cobrança real repetida. Por isso a tela não esconde nada por padrão.</p></article>
         <article class="achado atencao"><h3>Pendente já lançada</h3><p>A compra aparece como pendente (fatura aberta) e também como lançada (fatura fechada). A versão lançada é a que vale.</p></article>
         <article class="achado neutro"><h3>Como confirmar</h3><p>Abrir no app do banco uma fatura marcada como “inteira dobrada” e contar as compras. Se lá aparecem pela metade, é duplicação da integração, e o app vai descartar as cópias sozinho.</p></article>
       </div>
@@ -3312,6 +3549,35 @@ ${codigoComum}
       location.href = "/entrar";
     });
   }
+
+  // ---- Tabelas no celular: cada célula leva o nome da sua coluna ----
+  // O CSS usa data-rotulo para desenhar a linha como "nome  valor" (só em até 760 px). No
+  // computador o atributo não muda nada. Fluxo e DRE (matriz) e Registros têm layout próprio.
+  const telaPequena = window.matchMedia("(max-width: 760px)");
+  function rotularTabelas() {
+    if (!telaPequena.matches) return;
+    for (const t of document.querySelectorAll("table:not(.matriz)")) {
+      if (t.closest('[data-vista="recorrentes"]')) continue;
+      const cab = t.querySelector("thead tr:last-child");
+      if (!cab) continue;
+      const nomes = [...cab.children].map((th) => (th.textContent || "").replace(/\\s+/g, " ").trim());
+      if (!nomes.some(Boolean)) continue;
+      t.dataset.lista = "1";
+      for (const tr of t.querySelectorAll("tbody > tr")) {
+        const celulas = [...tr.children];
+        if (celulas.some((td) => td.colSpan > 1)) { tr.classList.add("linha-larga"); continue; }
+        celulas.forEach((td, i) => { if (nomes[i] && td.dataset.rotulo !== nomes[i]) td.dataset.rotulo = nomes[i]; });
+      }
+    }
+  }
+  let rotularPendente = false;
+  new MutationObserver(() => {
+    if (rotularPendente) return;
+    rotularPendente = true;
+    requestAnimationFrame(() => { rotularPendente = false; rotularTabelas(); });
+  }).observe(document.body, { childList: true, subtree: true });
+  telaPequena.addEventListener("change", rotularTabelas);
+  rotularTabelas();
 
   // ---- Navegação entre telas ----
   function mostrar(vista) {
@@ -3576,6 +3842,9 @@ ${codigoFluxo}
 </script>
 <script>
 ${mostra("dre") ? codigoDre : ""}
+</script>
+<script>
+${codigoProjetosCalculo}
 </script>
 <script>
 ${codigoProjetos}

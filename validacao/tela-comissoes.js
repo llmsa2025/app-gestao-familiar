@@ -93,7 +93,7 @@
       const c = calcularNegocio(n, estado.recebimentos.filter((r) => r.negocioId === String(n.id)));
       if (c.falta > 0.004) {
         const e = estado.empresas.find((x) => x.id === String(n.empresaId));
-        itens.push({ id: String(n.id), nome: (e ? e.nome : "Empresa") + (n.cliente ? " — " + n.cliente : ""), pessoaId: n.pessoaId || "", falta: c.falta });
+        itens.push({ id: String(n.id), nome: (e ? e.nome : "Empresa") + (n.cliente ? " · " + n.cliente : ""), pessoaId: n.pessoaId || "", falta: c.falta });
       }
     }
     const marca = JSON.stringify(itens);
@@ -176,7 +176,7 @@
       ? cartao(empresa, vistas.filter((l) => l.n.empresaId === empresa.id), todas.filter((l) => l.n.empresaId === empresa.id))
       : estado.empresas.length
         ? listaDeEmpresas(vistas)
-        : '<p class="vazio">Nenhuma empresa cadastrada. Comece por “Nova empresa” — a empresa para a qual você vende — e depois lance cada negócio e cada comissão recebida.</p>';
+        : '<p class="vazio">Nenhuma empresa cadastrada. Comece por “Nova empresa” (a empresa para a qual você vende) e depois lance cada negócio e cada comissão recebida.</p>';
 
     $("com-nova-empresa").disabled = !estado.db;
   }
@@ -471,7 +471,7 @@
     const c = calcularNegocio(negocio, recebimentosDe(negocio.id));
     f.dataset.negocio = negocio.id;
     f.dataset.id = r ? r.id : "";
-    $("form-com-receb-titulo").textContent = (r ? "Editar recebimento — " : "Receber comissão — ") + negocio.cliente;
+    $("form-com-receb-titulo").textContent = (r ? "Editar recebimento de " : "Receber comissão de ") + negocio.cliente;
     // Ao editar, o "falta" já descontou este recebimento: soma de volta para mostrar o quanto faltava SEM ele
     const faltaSemEste = r ? arredonda(c.falta + (Number(r.valor) || 0)) : c.falta;
     $("com-r-info").innerHTML = "Comissão do negócio: <strong>" + brl.format(c.devida) + "</strong> (" + textoPercentual(negocio.percentual) + " de " + brl.format(c.valor) + ") · " +

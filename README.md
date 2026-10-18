@@ -27,7 +27,8 @@ Pluggy.
 | **Endividamento** | Cartões (com as faturas futuras mês a mês), empréstimos, financiamentos (SAC/Price, taxa, CET) e compras parceladas de bens, com balões e "já pago". |
 | **Investimentos** | Por pessoa, com aportes, resgates e resultado; moeda estrangeira; consórcio (cota, parcela, "foi contemplado"). |
 | **Bens** | Imóveis, terrenos, veículos: valor atual com histórico, dívida ligada e custo de manter. |
-| **Comissões, Projetos** | Controles opcionais, à parte. |
+| **Projetos** | Viagem, reforma, obra: itens planejados, e os lançamentos do extrato que você vincula mostram se o gasto passou do previsto. O Fluxo não conta em dobro o que já está vinculado. |
+| **Comissões** | Controle opcional, à parte. |
 | **Contas e bancos · Extrato · Qualidade dos dados** | Conferência: saldos, extrato linha a linha, repetidos, buracos e conexões paradas. |
 | *DRE* | O resultado por categoria (caixa ou competência) continua no código, mas fica **fora do menu**; `GF_VISTAS_VOLTAR=dre` o liga de volta. |
 

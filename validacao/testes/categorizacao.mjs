@@ -117,7 +117,7 @@ async function lugarComVariasChaves(pagina) {
     conferir("'ver menos' recolhe", (await pagina.$eval(`${linha} .obs-mais`, (b) => b.textContent)) === "ver mais");
 
     // --- Recorrência, valor e nome também só acendem o botão ---
-    // Pedido do Lucas: o botão ativava só pelo nome. QUALQUER um dos quatro campos
+    // Pedido do usuário: o botão ativava só pelo nome. QUALQUER um dos quatro campos
     // (nome, categoria, valor previsto, recorrência) acende o botão, nada grava
     // sozinho, e o clique aplica o que mudou.
     const ativo = () => pagina.$eval(`${linha} button[data-reclassificar]`, (b) => !b.disabled);

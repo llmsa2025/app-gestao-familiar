@@ -40,7 +40,7 @@ const RESUMOS = {
   analises: "Cenários",
   recorrentes: "O que se repete todo mês",
   dividas: "Tudo o que a família deve",
-  projetos: "O que é grande e tem data",
+  projetos: "Para o que é grande e tem data",
   comissoes: "O que você gerou de negócio para cada empresa",
   registros: "Só consulta: o extrato das contas e cartões",
   contas: "Cada banco conectado no Meu Pluggy",

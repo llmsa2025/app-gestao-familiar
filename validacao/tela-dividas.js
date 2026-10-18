@@ -88,7 +88,7 @@
   const contaPorIndice = Object.fromEntries((DADOS.contas || []).map((c) => [c.i, c]));
   const lancPorChave = new Map((DADOS.registros || []).map((l) => [chaveLanc(l), l]));
 
-  const estado = { db: null, dividas: [], editando: null, excluindo: null, aba: "cartoes", vinculos: {} };
+  const estado = { db: null, dividas: [], editando: null, excluindo: null, aba: "cartoes", vinculos: {}, noProjeto: {} };
 
   const aviso = (texto) => { const el = $("dividas-aviso"); el.textContent = texto || ""; el.hidden = !texto; };
 
@@ -409,7 +409,7 @@
   // dívida. É só sugestão: vincular é sempre um clique da pessoa.
   function creditosParaVincular() {
     return (DADOS.registros || []).filter((l) =>
-      window.CLASSIFICACAO.movimentoDeConta(l, contaPorIndice[l.c]) && window.CATEGORIAS.pluggyDeEmprestimo(l) && !estado.vinculos[chaveLanc(l)]);
+      window.CLASSIFICACAO.movimentoDeConta(l, contaPorIndice[l.c]) && window.CATEGORIAS.pluggyDeEmprestimo(l) && !estado.vinculos[chaveLanc(l)] && !estado.noProjeto[chaveLanc(l)]);
   }
 
   // Dívida a que um crédito pode ser vinculado: cadastrada por você (id numérico), nunca o ajuste de um cartão.
@@ -638,7 +638,7 @@
   // O que o "i" do resumo explica. A da Dívida de Face é montada na hora, com os números que estão na tela.
   let ultimoResumo = null;
   const DICAS = {
-    total: "<strong>Dívida total</strong> — o saldo devedor de hoje: o que ainda falta pagar do que já foi tomado, <strong>sem</strong> os juros que as parcelas vão cobrar daqui para a frente. No cartão, é o que já foi gasto e ainda não foi pago.",
+    total: "<strong>Dívida total</strong>: o saldo devedor de hoje, ou seja, o que ainda falta pagar do que já foi tomado, <strong>sem</strong> os juros que as parcelas vão cobrar daqui para a frente. No cartão, é o que já foi gasto e ainda não foi pago.",
   };
   const abrirInfo = (alvo) => window.DICA.mostrar(alvo, alvo.dataset.info === "face" && ultimoResumo ? window.DIVIDA_DE_FACE.dica(ultimoResumo) : DICAS[alvo.dataset.info] || "");
   $("dividas-resumo").addEventListener("click", (e) => { const info = e.target.closest("[data-info]"); if (info) abrirInfo(info); });
@@ -772,7 +772,7 @@
   function custoCalculadoDoPopup(d) {
     if (tem(d.taxa_ano) || tem(d.taxa_mes) || tem(d.taxa_nominal_ano) || tem(d.cet_ano) || tem(d.cet_mes)) return [];
     const c = custoEfetivoCalculado(d);
-    return c ? [["Custo efetivo (calculado)", pct(c.mes) + " ao mês · " + pct(c.ano) + " ao ano — conta feita com o valor recebido e as parcelas, não é informação do banco; inclui IOF e tarifas"]] : [];
+    return c ? [["Custo efetivo (calculado)", pct(c.mes) + " ao mês · " + pct(c.ano) + " ao ano (conta feita com o valor recebido e as parcelas, não é informação do banco; inclui IOF e tarifas)"]] : [];
   }
 
   function abrirDetalheDaDivida(d) {
@@ -791,16 +791,16 @@
       [d.tipo === "Financiamento" ? "Assinado em" : "Liberado em", d.liberado_em ? dataBR(d.liberado_em) : ""],
       ["Número do contrato", d.contrato],
       ["Entrada", Number(d.entrada) ? brl.format(Number(d.entrada)) + (d.entrada_em ? " em " + dataBR(d.entrada_em) : "") : ""],
-      ["1ª parcela", /^\d{4}-\d{2}$/.test(String(d.primeira_parcela || "")) ? nomeMes(d.primeira_parcela) + (d.dia ? " · dia " + d.dia : "") + (calendarioAutomatico(d) ? " — o app conta sozinho as que já passaram" : "") : ""],
+      ["1ª parcela", /^\d{4}-\d{2}$/.test(String(d.primeira_parcela || "")) ? nomeMes(d.primeira_parcela) + (d.dia ? " · dia " + d.dia : "") + (calendarioAutomatico(d) ? " (o app conta sozinho as que já passaram)" : "") : ""],
       ["Balões", baloesDe(d).length ? baloesDe(d).map((b) => dataBR(b.data) + " · " + brl.format(b.valor) + (b.data < hojeISO ? " (já pago)" : "")).join(" · ") : ""],
       ["Já pago (informado)", tem(d.ja_pago) && !calendarioAutomatico(d) ? brl.format(Number(d.ja_pago)) : ""],
-      ["Sem data combinada", semDataDe(d) ? brl.format(semDataDe(d)) + " — o valor emprestado, menos o já pago e menos o que está nos balões e parcelas. Conta no saldo devedor." : ""],
+      ["Sem data combinada", semDataDe(d) ? brl.format(semDataDe(d)) + " (o valor emprestado, menos o já pago e menos o que está nos balões e parcelas). Conta no saldo devedor." : ""],
       ["Valor do imóvel", tem(d.valor_bem) ? brl.format(Number(d.valor_bem)) + (Number(d.valor_bem) && tem(d.valor_financiado) ? " (financia " + formatoPct2.format((Number(d.valor_financiado) / Number(d.valor_bem)) * 100) + "%)" : "") : ""],
       ["FGTS usado", tem(d.fgts_usado) ? brl.format(Number(d.fgts_usado)) : ""],
-      ["Sistema", d.sistema === "SAC" ? "SAC — a prestação diminui todo mês (a estimativa não inclui a correção pelo índice do contrato, que o banco avisa que muda a prestação)" : ""],
+      ["Sistema", d.sistema === "SAC" ? "SAC: a prestação diminui todo mês. A estimativa não inclui a correção pelo índice do contrato, que o banco avisa que muda a prestação" : ""],
       ["Seguro (dentro da prestação)", tem(d.seguro_mes) ? brl.format(Number(d.seguro_mes)) : ""],
-      ["Taxa de administração do consórcio", tem(d.taxa_adm) ? pct(d.taxa_adm) + (tem(d.valor_bem) ? " — " + brl.format((Number(d.valor_bem) * Number(d.taxa_adm)) / 100) + " sobre a carta" : "") : ""],
-      ["Fundo de reserva do consórcio", tem(d.fundo_reserva) ? pct(d.fundo_reserva) + (tem(d.valor_bem) ? " — " + brl.format((Number(d.valor_bem) * Number(d.fundo_reserva)) / 100) + " sobre a carta" : "") : ""],
+      ["Taxa de administração do consórcio", tem(d.taxa_adm) ? pct(d.taxa_adm) + (tem(d.valor_bem) ? " · " + brl.format((Number(d.valor_bem) * Number(d.taxa_adm)) / 100) + " sobre a carta" : "") : ""],
+      ["Fundo de reserva do consórcio", tem(d.fundo_reserva) ? pct(d.fundo_reserva) + (tem(d.valor_bem) ? " · " + brl.format((Number(d.valor_bem) * Number(d.fundo_reserva)) / 100) + " sobre a carta" : "") : ""],
       ["Taxa operacional (dentro da prestação)", tem(d.taxa_operacional_mes) ? brl.format(Number(d.taxa_operacional_mes)) : ""],
       ["Juros nominais", tem(d.taxa_nominal_ano) ? pct(d.taxa_nominal_ano) + " ao ano" : ""],
       ["Juros do contrato", taxas(d.taxa_mes, d.taxa_ano)],
@@ -845,9 +845,9 @@
       ["Valor do bem", c.valorBem === null ? "" : brl.format(c.valorBem)],
       ["Entrada", c.entrada ? brl.format(c.entrada) + (d.entrada_em ? " em " + dataBR(d.entrada_em) : "") : ""],
       ["Parcelas", c.total && c.parcela ? c.total + " × " + brl.format(c.parcela) + " = " + brl.format(c.totalParcelas) + (c.aParcelar === null ? "" : " (valor do bem − entrada = " + brl.format(c.aParcelar) + ")") : ""],
-      ["1ª parcela", /^\d{4}-\d{2}$/.test(String(d.primeira_parcela || "")) ? nomeMes(d.primeira_parcela) + (d.dia ? " · dia " + d.dia : "") + " — o app conta sozinho as que já passaram" : ""],
+      ["1ª parcela", /^\d{4}-\d{2}$/.test(String(d.primeira_parcela || "")) ? nomeMes(d.primeira_parcela) + (d.dia ? " · dia " + d.dia : "") + " (o app conta sozinho as que já passaram)" : ""],
       ["Balões", c.totalBaloes ? baloesDe(d).map((b) => dataBR(b.data) + " · " + brl.format(b.valor)).join(" · ") : ""],
-      ["Pago junto da parcela", c.extra ? nomeExtra + brl.format(c.extra) + " por mês — no extrato sai " + brl.format(c.parcela + c.extra) + " por mês" : ""],
+      ["Pago junto da parcela", c.extra ? nomeExtra + brl.format(c.extra) + " por mês (no extrato sai " + brl.format(c.parcela + c.extra) + " por mês)" : ""],
       ["Já pago", c.jaPago ? brl.format(c.jaPago) + " = " + [c.entrada ? "entrada de " + brl.format(c.entrada) : "", c.pagas ? plural(c.pagas, "parcela", "parcelas") + " × " + brl.format(c.parcela) : ""].filter(Boolean).join(" + ") +
         (c.pctPago === null ? "" : " (" + formatoPct1.format(c.pctPago * 100) + "% do bem)") : ""],
       ["Falta pagar", c.faltaPagar ? brl.format(c.faltaPagar) + " em " + plural(c.restam, "parcela", "parcelas") + ", até " + nomeMes(c.ultima.mes) : c.total ? "nada: a aquisição está quitada" : ""],
@@ -877,7 +877,7 @@
     {
       valor: "Empréstimo consignado", nome: "Empréstimo consignado", ajuda: "Descontado direto na folha ou no benefício (CLT, servidor, INSS).",
       dataRotulo: "Data da contratação", credor: "Banco", credorExemplo: "ex.: Itaú", juros: "banco", foraDoFluxo: true,
-      foraDoFluxoRotulo: "Descontado em folha — não projetar esta parcela no Fluxo (ela já sai do salário, e não da conta)",
+      foraDoFluxoRotulo: "Descontado em folha: não projetar esta parcela no Fluxo (ela já sai do salário, e não da conta)",
       campos: [...BASE, "contrato", "recebido", "saldo"],
     },
     {
@@ -896,7 +896,7 @@
       valor: TIPO_AQUISICAO, nome: "Compra parcelada de um bem", ajuda: "Sítio, terreno, carro: o preço, a entrada e as parcelas, sem banco nem juros.",
       dataRotulo: "Data da compra", credor: "Vendedor", credorExemplo: "ex.: Genilda Rocha Linhares", juros: null, calendarioFixo: true,
       valorBem: "Valor do bem (R$)", valorBemAjuda: "o preço combinado da compra",
-      foraDoFluxoRotulo: "Não projetar no Fluxo — a parcela já é um registro em Registros",
+      foraDoFluxoRotulo: "Não projetar no Fluxo (a parcela já é um registro em Registros)",
       campos: [...BASE, "valor-bem", "entrada", "entrada-em", "extra", "extra-nome"],
     },
     {
@@ -941,7 +941,7 @@
   const COLUNAS_DE_JUROS = ["taxa_mes", "taxa_ano", "juros_total"];
   const preenchido = (v) => (Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined && v !== "" && v !== false && (!/^-?\d+(\.\d+)?$/.test(String(v)) || Number(v) !== 0));
   const guardado = (original, campo) => !!original && (COLUNAS_DO_CAMPO[campo] || []).some((c) => preenchido(original[c]));
-  const PADRAO_FORA_FLUXO = "Não projetar esta parcela no Fluxo — ela já é um registro em Registros, ou é descontada em folha e não sai da conta";
+  const PADRAO_FORA_FLUXO = "Não projetar esta parcela no Fluxo (ela já é um registro em Registros, ou é descontada em folha e não sai da conta)";
 
   // O que o pop-up guarda enquanto está aberto.
   const cad = { etapa: 1, tipo: "Empréstimo", original: null, formCartao: false, modoCalendario: "primeira", jurosEmGrade: false, visiveis: new Set(), jaPagoDigitado: "", jaPagoTravado: false };
@@ -1196,7 +1196,7 @@
       else if (!dados.dia) erro = "Informe o dia do vencimento (de 1 a 31).";
     } else if (!parcela && !dados.saldo && !baloes.length) erro = "Informe o saldo devedor ou o valor da parcela.";
     else if (parcela > 0 && cad.modoCalendario === "primeira" && !auto) {
-      erro = "Informe quantas parcelas são e o mês da 1ª parcela — ou use “informar só o que falta”.";
+      erro = "Informe quantas parcelas são e o mês da 1ª parcela, ou use “informar só o que falta”.";
     } else if (auto && !dados.dia) erro = "Informe o dia do vencimento (de 1 a 31): é com ele que o app sabe se a parcela do mês já passou.";
     return { dados, erro, auto, forma };
   }
@@ -1235,11 +1235,11 @@
     let alerta = false;
     if (c.aParcelar !== null) {
       partes.push("Valor do bem − entrada = " + brl.format(c.aParcelar) + "; " + soma + " = " + brl.format(c.totalParcelas) +
-        (c.confere ? " — confere." : " — NÃO confere (há juros, desconto ou um valor digitado errado)."));
+        (c.confere ? ". Confere." : ". NÃO confere (há juros, desconto ou um valor digitado errado)."));
       alerta = c.confere === false;
     } else if (base > 0) {
       const diferenca = arredonda(c.totalParcelas - base);
-      partes.push("Total a pagar: " + soma + " = " + brl.format(c.totalParcelas) + " — " +
+      partes.push("Total a pagar: " + soma + " = " + brl.format(c.totalParcelas) + ", " +
         (Math.abs(diferenca) <= 1 ? "igual ao valor recebido (" + brl.format(base) + "): sem juros."
           : diferenca > 0 ? brl.format(diferenca) + " a mais que os " + brl.format(base) + " recebidos: são os juros (" + formatoPct1.format((diferenca / base) * 100) + "% do valor)."
           : "NÃO confere: as parcelas somam menos que os " + brl.format(base) + " recebidos."));
@@ -1361,7 +1361,7 @@
     if (cad.formCartao) {
       $("d-aviso-cartao").textContent =
         "Você está ajustando o cartão " + d.nome + " (" + [d.credor, d.titular].filter(Boolean).join(" · ") +
-        "). O que salvar aqui substitui o cálculo automático deste cartão — não cria uma dívida nova. Para cadastrar outra dívida, feche e use “Nova dívida”.";
+        "). O que salvar aqui substitui o cálculo automático deste cartão e não cria uma dívida nova. Para cadastrar outra dívida, feche e use “Nova dívida”.";
     }
     // Tudo o que o contrato já tem
     $("d-nome").value = d ? d.nome : "";
@@ -1523,6 +1523,8 @@
   });
 
   document.addEventListener("vista", (e) => { if (e.detail === "dividas") desenhar(); });
+  // O que já é de projeto não aparece como crédito de empréstimo (um lançamento só mora num lugar)
+  window.ouvirTelas("projetos-vinculos", (d) => { estado.noProjeto = d || {}; desenhar(); });
 
   desenhar();
 

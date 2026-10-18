@@ -1,6 +1,6 @@
 // Novo registro virou um pop-up e o lançamento ÚNICO tem uma DATA (não "dia previsto" + "começa em").
 //
-// Pedido do Lucas (13/10/2026): lançar o salário de fevereiro, recebido numa conta que o app não
+// Pedido do usuário (13/10/2026): lançar o salário de fevereiro, recebido numa conta que o app não
 // enxerga. Sem recorrência não faz sentido pedir "começa em"; faz sentido pedir a data — e, como o
 // dinheiro já entrou, marcar como recebido na mesma tela.
 //

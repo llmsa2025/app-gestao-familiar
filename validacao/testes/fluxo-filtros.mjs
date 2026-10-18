@@ -33,7 +33,7 @@ const projetos = { teste: { nome: "Teste", status: "Em andamento", itens: [
 ] } };
 const { navegador, pagina, erros } = await abrir(caminho, { projetos }, "fluxo", { agora });
 try {
-  assert.deepEqual(await pagina.locator("#fluxo-periodo option").allTextContents(), ["Hoje", "Este mês", "Este ano", "Próximos 7d", "Próximos 30d", "Próximos 90d", "Personalizado"]);
+  assert.deepEqual(await pagina.locator("#fluxo-periodo option").allTextContents(), ["Hoje", "Este mês", "Este ano", "Próximos 7d", "Próximos 30d", "Próximos 90d", "Próximos 6 meses", "Próximos 12 meses", "Personalizado"]);
   assert.equal(await pagina.locator("#fluxo-periodo").inputValue(), "ano-completo");
   await pagina.selectOption("#fluxo-periodo", { label: "Este ano" });
   const periodo = await pagina.textContent("#fluxo-periodo-texto");
@@ -43,7 +43,7 @@ try {
   assert.match(colunas[2], /Jan/i);
   assert.match(colunas.at(-2), /Dez/i);
   await pagina.check("#fluxo-projetos");
-  assert.equal(valor((await linha(pagina, "#fluxo-tabela", "Projeto · Teste")).at(-1)), 1000, "Inclui 31/12, exclui 01/01 do ano seguinte");
+  assert.equal(valor((await linha(pagina, "#fluxo-tabela", "Teste")).at(-1)), 1000, "Inclui 31/12, exclui 01/01 do ano seguinte");
   assert.equal(valor(await pagina.locator('[data-categoria="Projeto · Teste"][data-balde="2026-12"]').textContent()), 700);
 
   for (const [opcao, fim, dias] of [["7-frente", "16/10/2026", 7], ["30-frente", "08/11/2026", 30], ["90-frente", "07/01/2027", 90]]) {
@@ -51,7 +51,7 @@ try {
     await pagina.selectOption("#fluxo-agrupamento", "diario");
     assert((await pagina.textContent("#fluxo-periodo-texto")).startsWith("10/10/2026 a " + fim));
     assert.equal(await pagina.locator("#fluxo-tabela thead th").count(), dias + 3);
-    if (dias === 7) assert.equal(valor((await linha(pagina, "#fluxo-tabela", "Projeto · Teste")).at(-1)), 100);
+    if (dias === 7) assert.equal(valor((await linha(pagina, "#fluxo-tabela", "Teste")).at(-1)), 100);
   }
   await pagina.selectOption("#fluxo-agrupamento", "mensal");
   await pagina.selectOption("#fluxo-periodo", "personalizado");

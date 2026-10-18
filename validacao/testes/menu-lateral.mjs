@@ -2,7 +2,7 @@
 // das telas, marca da casa e o recolher (pequeno, abaixo do nome) no topo, usuário logado
 // na base, lateral FIXA (só a página da direita rola) e a trilha de ícones quando recolhido.
 //
-// Pedido do Lucas (14/10/2026): "tira os números na frente das telas, diferencie o nome do
+// Pedido do usuário (14/10/2026): "tira os números na frente das telas, diferencie o nome do
 // grupo das telas, coloque o meu usuário" e (15/10) "deixa a barra fixa; o que move é só a
 // página da direita; o nome da família e o recolher (abaixo do nome, menor) no topo".
 import { gerarPreview, abrir, conferir, fechar } from "./util.mjs";
@@ -58,9 +58,13 @@ console.log("Menu lateral\n");
   // De ponta a ponta: do alto ao pé da janela, colada na esquerda, sem cantos arredondados
   const ponta = await pagina.evaluate(() => { const l = document.querySelector("#lateral"), r = l.getBoundingClientRect(); return { topo: Math.round(r.top), pe: Math.round(r.bottom), esquerda: Math.round(r.left), janela: innerHeight, raio: parseFloat(getComputedStyle(l).borderTopRightRadius) }; });
   conferir("A lateral vai de ponta a ponta: do alto ao pé da janela, colada na esquerda", ponta.topo === 0 && ponta.pe === ponta.janela && ponta.esquerda === 0 && ponta.raio === 0, JSON.stringify(ponta));
-  // Folga entre a linha embaixo da marca e o primeiro grupo (não pode ficar grudado)
+  // Folga entre a marca (com o recolher) e o primeiro grupo: sem linha no meio, não pode ficar grudado
   const folga = await pagina.evaluate(() => Math.round(document.querySelector("#menu .grupo > .rotulo").getBoundingClientRect().top - document.querySelector(".lateral-marca").getBoundingClientRect().bottom));
-  conferir("O primeiro grupo não fica colado na linha da marca (≥ 18 px de folga)", folga >= 18, `${folga}px`);
+  conferir("O primeiro grupo não fica colado na marca (≥ 18 px de folga)", folga >= 18, `${folga}px`);
+  // Pedido do usuário (16/10/2026): "essa linha abaixo do ícone de recolher, podia retirar, tá feio"
+  conferir("Não há linha embaixo da marca e do botão de recolher", await pagina.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".lateral-marca")).borderBottomWidth) === 0));
+  // Pedido do usuário (16/10/2026): a aba do navegador dizia "Validação APP Gestão"
+  conferir('A aba do navegador se chama "Gestão Família"', (await pagina.title()) === "Gestão Família", await pagina.title());
   conferir("Os 15 itens cabem sem rolar dentro do menu (janela de 800 px)", await pagina.evaluate(() => { const m = document.querySelector("#menu"); return m.scrollHeight <= m.clientHeight; }));
   conferir("A marca mostra ícone, \"Gestão Família\" e \"Minha Família\"",
     await pagina.isVisible(".marca-icone svg") && /Gestão Família/.test(await pagina.innerText(".marca-linha")) && /Minha Família/.test(await pagina.innerText(".marca-nome")));
@@ -84,6 +88,18 @@ console.log("Menu lateral\n");
   conferir("Recolhida: os 15 ícones continuam à vista e os nomes somem", trilha.icones && !trilha.nomes);
   conferir("Recolhida: cada ícone tem o nome em balão", trilha.baloes);
   conferir("Recolhida: a marca fica só com o ícone e a base não vaza", trilha.marcaTexto === 0 && trilha.rodape);
+  // Pedido do usuário (16/10/2026): ao recolher, o botão de expandir ficava à esquerda, fora do eixo da marca e dos ícones
+  const eixo = await pagina.evaluate(() => {
+    const centro = (e) => { const b = e.getBoundingClientRect(); return Math.round((b.left + b.width / 2) * 10) / 10; };
+    return {
+      botao: centro(document.querySelector("#alternar-lateral")), marca: centro(document.querySelector(".marca-icone")),
+      icone: centro(document.querySelector("#menu .item .ico")),
+    };
+  });
+  conferir("Recolhida: o botão de expandir fica centralizado, no mesmo eixo da marca e dos ícones",
+    Math.abs(eixo.botao - eixo.marca) <= 1 && Math.abs(eixo.botao - eixo.icone) <= 1, JSON.stringify(eixo));
+  conferir("Recolhida: nenhuma linha embaixo do botão de expandir (nem a da marca, nem o fio do primeiro grupo)", await pagina.evaluate(() =>
+    parseFloat(getComputedStyle(document.querySelector(".lateral-marca")).borderBottomWidth) === 0 && getComputedStyle(document.querySelector("#menu .grupo > .rotulo")).display === "none"));
   if (SAIDA) await pagina.screenshot({ path: SAIDA + "/menu-recolhido.png", clip: { x: 0, y: 0, width: 120, height: 800 } });
   await pagina.click("#alternar-lateral");
   await pagina.waitForTimeout(200);

@@ -7,7 +7,7 @@
 //
 // E, quando há projeto com item no futuro, o valor tem que entrar na soma: uma
 // linha que aparece sem mexer no total seria pior do que não aparecer.
-import { gerarPreview, abrir, conferir, fechar, linha, cards, card, numero } from "./util.mjs";
+import { gerarPreview, abrir, conferir, fechar, linha, linhas, cards, card, numero } from "./util.mjs";
 
 const caminho = gerarPreview();
 const daquiA = (dias) => new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10);
@@ -63,8 +63,10 @@ const SEMENTE = {
   await pagina.waitForTimeout(600);
 
   const l = await linha(pagina, "#fluxo-tabela", "Projetos");
-  conferir("Período que acaba hoje: a linha aparece", !!l, (l || [])[0]);
-  conferir("E avisa que projeto é previsão", /previsão|futuro/i.test((l || [])[0] || ""), (l || [])[0]);
+  conferir("Período que acaba hoje: o grupo Projetos aparece", !!l, (l || [])[0]);
+  conferir("...sem nota nenhuma: é um grupo como os outros", (l || [])[0] === "▾ Projetos" || /^▾?\s*Projetos$/.test(((l || [])[0] || "").trim()), (l || [])[0]);
+  const listado = await linha(pagina, "#fluxo-tabela", "Casa nova");
+  conferir("O projeto aparece listado no grupo mesmo sem valor no período (linha zerada)", !!listado, (listado || []).join(" | "));
   await navegador.close();
 }
 
@@ -80,9 +82,16 @@ const SEMENTE = {
   await pagina.check("#fluxo-projetos");
   await pagina.waitForTimeout(600);
   const comProjeto = numero("saídas com projeto", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
-  const l = await linha(pagina, "#fluxo-tabela", "Projeto · Casa nova");
+  const l = await linha(pagina, "#fluxo-tabela", "Casa nova");
 
   conferir("O projeto vira linha própria no Fluxo", !!l, (l || [])[0]);
+  // O grupo Projetos fica no fim das Saídas (depois das categorias do dia a dia), com a linha do projeto logo abaixo.
+  const todas = (await linhas(pagina, "#fluxo-tabela")).map((r) => (r[0] || "").toLowerCase());
+  const iSaidas = todas.findIndex((t) => t.startsWith("saídas") || t.includes("saídas"));
+  const iGrupo = todas.findIndex((t) => t.startsWith("projetos") || t.includes("projetos"));
+  const iResultado = todas.findIndex((t) => t.startsWith("resultado"));
+  conferir("O grupo Projetos está dentro das Saídas, no fim", iSaidas >= 0 && iGrupo > iSaidas && iGrupo < iResultado && todas[iGrupo + 1].includes("casa nova") && todas.slice(iGrupo + 2, iResultado).every((t) => !/^(outros|projeto)/.test(t) || true), todas.slice(iSaidas, iResultado + 1).join(" | "));
+  conferir("A linha do projeto não vem mais dentro de Outros", !todas.slice(iSaidas, iGrupo).some((t) => t.includes("casa nova")));
   conferir(
     "As saídas sobem exatamente o item a pagar (o já pago fica fora)",
     Math.abs(comProjeto - semProjeto - ITEM) < 0.02,
@@ -94,6 +103,56 @@ const SEMENTE = {
   const voltou = numero("saídas ao desmarcar", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
   conferir("Desmarcar devolve o total de antes", Math.abs(voltou - semProjeto) < 0.01, `${comProjeto} → ${voltou}`);
   conferir("Com projeto: nenhum erro de JavaScript", erros.length === 0, erros.join(" | "));
+  await navegador.close();
+}
+
+// ---------------------------------------------------------------------------
+// 3b. Item depois do fim do período: o grupo avisa e o botão leva até ele
+// ---------------------------------------------------------------------------
+{
+  const VIAGEM = 3210.5;
+  const SEMENTE_FUTURA = {
+    projetos: {
+      p2: {
+        nome: "Viagem", tipo: "Viagem", status: "Planejado",
+        itens: [
+          { descricao: "Passagens", valor: VIAGEM, data: daquiA(400), categoria: "", pago: false },
+          { descricao: "Antigo", valor: 100, data: daquiA(-5), categoria: "", pago: false },
+        ],
+      },
+    },
+  };
+  const { navegador, pagina, erros } = await abrir(caminho, SEMENTE_FUTURA, "fluxo");
+  const antes = numero("saídas antes", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
+  await pagina.check("#fluxo-projetos");
+  await pagina.waitForTimeout(600);
+  const grupo = await linha(pagina, "#fluxo-tabela", "Projetos");
+  conferir("Item no ano que vem: o grupo Projetos aparece", !!grupo, (grupo || [])[0]);
+  conferir("Sem nota de 'fica depois de' nem botão para ir até a data do item", !/depois de/i.test((grupo || [])[0] || "") && (await pagina.locator("#fluxo-tabela button[data-ver-ate]").count()) === 0, (grupo || [])[0]);
+  conferir("O aviso conta o item de data vencida que ficou de fora", /vencida/i.test((grupo || [])[0] || ""), (grupo || [])[0]);
+  conferir("O projeto está listado no grupo, com zero", !!(await linha(pagina, "#fluxo-tabela", "Viagem")));
+  const semMexer = numero("saídas com a caixa", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
+  conferir("Sem item no período, marcar a caixa não mexe nas saídas", Math.abs(semMexer - antes) < 0.01, `${antes} → ${semMexer}`);
+
+  await pagina.selectOption("#fluxo-periodo", "personalizado");
+  await pagina.fill("#fluxo-de", daquiA(0));
+  await pagina.fill("#fluxo-ate", daquiA(420));
+  await pagina.waitForTimeout(600);
+  // O período ficou maior e trouxe também os Registros do ano que vem: a prova é com e sem a caixa, no mesmo período.
+  const comItem = numero("saídas com o item", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
+  await pagina.uncheck("#fluxo-projetos");
+  await pagina.waitForTimeout(500);
+  const semItem = numero("saídas sem o item", card(await cards(pagina, "fluxo-resumo"), "Saídas no período"));
+  await pagina.check("#fluxo-projetos");
+  await pagina.waitForTimeout(500);
+  conferir("Num período que alcança a data, a viagem entra nas saídas", Math.abs(comItem - semItem - VIAGEM) < 0.02, `subiu ${(comItem - semItem).toFixed(2)}, esperado ${VIAGEM.toFixed(2)}`);
+  conferir("E a linha da viagem aparece no grupo", !!(await linha(pagina, "#fluxo-tabela", "Viagem")));
+
+  // Próximos 12 meses alcança menos de 400 dias: o projeto segue listado (zerado), sem nota
+  await pagina.selectOption("#fluxo-periodo", "12-frente");
+  await pagina.waitForTimeout(500);
+  conferir("Próximos 12 meses: o projeto continua listado no grupo", !!(await linha(pagina, "#fluxo-tabela", "Viagem")));
+  conferir("Item no ano que vem: nenhum erro de JavaScript", erros.length === 0, erros.join(" | "));
   await navegador.close();
 }
 

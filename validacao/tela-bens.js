@@ -78,6 +78,7 @@
     pessoas: [],         // as do cadastro (Configuração): [{ id, nome, primeiro_nome }]
     dividas: null,       // os itens que o Endividamento publica ([{ id, nome, tipo, saldo, doCartao… }]); null = ainda não chegou
     noInvestimento: {},  // chave do lançamento → id do investimento (o que a tela de Investimentos publica): esse lançamento não é custo de bem
+    noProjeto: {},       // o mesmo para o que a tela de Projetos vinculou (`projetos-vinculos`): um lançamento só mora num lugar
     filtroPessoa: "",
     custosAbertos: {},   // id do bem → lista dos custos vinculados aberta
     historicoAberto: {}, // id do bem → histórico de avaliações aberto
@@ -260,7 +261,7 @@
     const q = String(busca || "").trim();
     const saida = [];
     for (const i of lancamentosDeSaida()) {
-      if (estado.vinculos[i.chave] || estado.noInvestimento[i.chave]) continue;
+      if (estado.vinculos[i.chave] || estado.noInvestimento[i.chave] || estado.noProjeto[i.chave]) continue;
       if ((de && i.data < de) || (ate && i.data > ate)) continue;
       if (q) { if (!window.BUSCA.casa(q, i.busca, [i.data], [i.valor])) continue; }
       else if (modo !== "todos" && !i.parece) continue;
@@ -280,8 +281,8 @@
   // O "i" ao lado de um número: uma frase curta, na mesma caixinha do DRE, do Fluxo e dos Investimentos
   const infoI = (chave, titulo) => '<span class="info" data-info="' + chave + '" role="button" tabindex="0" title="' + titulo + '">i</span>';
   const DICAS = {
-    "bens-liquido": "<strong>Patrimônio líquido dos bens</strong> — o que sobra dos bens depois de pagar o que ainda se deve por eles: <strong>valor dos bens − saldo devedor das dívidas ligadas</strong> (o saldo de hoje, como o Endividamento mostra). Encerrado (vendido ou baixado) fica de fora; bem sem avaliação conta como zero.",
-    "bens-custo": "<strong>Custo de manter</strong> — a soma dos lançamentos do extrato que você vinculou aos bens (IPTU, IPVA, seguro, taxas…) <strong>nos últimos 12 meses</strong> (de 364 dias atrás até hoje, a mesma janela do Fluxo). Vincular não muda o Fluxo, o DRE nem o Dash: o gasto continua sendo despesa.",
+    "bens-liquido": "<strong>Patrimônio líquido dos bens</strong>: o que sobra dos bens depois de pagar o que ainda se deve por eles, ou seja, <strong>valor dos bens − saldo devedor das dívidas ligadas</strong> (o saldo de hoje, como o Endividamento mostra). Encerrado (vendido ou baixado) fica de fora; bem sem avaliação conta como zero.",
+    "bens-custo": "<strong>Custo de manter</strong>: a soma dos lançamentos do extrato que você vinculou aos bens (IPTU, IPVA, seguro, taxas…) <strong>nos últimos 12 meses</strong> (de 364 dias atrás até hoje, a mesma janela do Fluxo). Vincular não muda o Fluxo, o DRE nem o Dash: o gasto continua sendo despesa.",
   };
   const ehRecolhido = (b) => (b.encerrado ? !estado.expandidosEncerrados.has(b.id) : estado.recolhidos.has(b.id));
   const plural = (n, um, varios) => n + " " + (n === 1 ? um : varios);
@@ -331,7 +332,7 @@
 
   // A LISTA: os bens agrupados por tipo (imóvel, terreno, veículo…); os ativos antes dos encerrados
   function listaDeBens(vistos) {
-    if (!estado.bens.length) return '<p class="vazio">Nenhum bem cadastrado. Use “Novo bem” para criar um — por exemplo a “Sítio”, ligada ao financiamento do Endividamento, ou um terreno já quitado — e informe quanto vale hoje.</p>';
+    if (!estado.bens.length) return '<p class="vazio">Nenhum bem cadastrado. Use “Novo bem” para criar um (por exemplo a “Sítio”, ligada ao financiamento do Endividamento, ou um terreno já quitado) e informe quanto vale hoje.</p>';
     if (!vistos.length) return '<p class="vazio">Nenhum bem neste filtro.</p>';
     const porTipo = new Map();
     const ordenados = [...vistos].sort((x, y) => ordemDoTipo(x.b.tipo) - ordemDoTipo(y.b.tipo) || Number(!!x.b.encerrado) - Number(!!y.b.encerrado) || x.b.nome.localeCompare(y.b.nome, "pt-BR"));
@@ -368,7 +369,7 @@
     const donoId = pessoaDe(b);
     const alternar = '<button type="button" class="botao pequeno fantasma" data-bem-recolher="' + esc(b.id) + '" aria-expanded="' + !recolhido + '" aria-label="' + (recolhido ? "Abrir " : "Recolher ") + esc(b.nome) + '" title="' + (recolhido ? "Abrir" : "Recolher: ver só uma linha de números") + '">' + (recolhido ? "▸" : "▾") + "</button>";
     const nome = '<div class="nome-inv">' + alternar + "<strong>" + esc(b.nome) + "</strong> " + (b.encerrado ? '<span class="pilula atencao">encerrado</span> ' : "") +
-      '<span class="meta">' + esc(b.tipo || "Sem tipo") + " · " + (donoId === SEM_PESSOA ? "sem pessoa" : "de " + esc(nomeDaPessoa(donoId))) + (b.observacao ? " — " + esc(b.observacao) : "") + "</span></div>";
+      '<span class="meta">' + esc(b.tipo || "Sem tipo") + " · " + (donoId === SEM_PESSOA ? "sem pessoa" : "de " + esc(nomeDaPessoa(donoId))) + (b.observacao ? " · " + esc(b.observacao) : "") + "</span></div>";
     const classes = "bloco" + (recolhido ? " recolhido" : "") + (b.encerrado ? " encerrado" : "");
     if (recolhido) return '<div class="' + classes + '" data-bem="' + esc(b.id) + '"><div class="bloco-topo">' + nome + "</div>" + numerosDoBem(b, c) + "</div>";
 
@@ -649,7 +650,7 @@
     const f = $("form-bem-aval");
     f.dataset.bem = b.id;
     f.dataset.id = a ? a.id : "";
-    $("form-bem-aval-titulo").textContent = (a ? "Editar avaliação — " : "Atualizar valor — ") + b.nome;
+    $("form-bem-aval-titulo").textContent = (a ? "Editar avaliação de " : "Atualizar o valor de ") + b.nome;
     $("bem-a-data").value = a ? a.data : hoje();
     $("bem-a-valor").value = a ? formatarValor(a.valor) : "";
     $("bem-a-obs").value = a ? a.observacao || "" : "";
@@ -797,6 +798,7 @@
   window.ouvirTelas("pessoas", (lista) => { estado.pessoas = lista || []; montarPessoas(); desenharLogo(); });
   // O saldo devedor de hoje de cada dívida vem do Endividamento: a conta é dele, esta tela só lê
   window.ouvirTelas("investimentos", (d) => { estado.noInvestimento = (d && d.vinculos) || {}; desenharLogo(); });
+  window.ouvirTelas("projetos-vinculos", (d) => { estado.noProjeto = d || {}; desenharLogo(); });
   window.ouvirTelas("dividas", (r) => { estado.dividas = r && Array.isArray(r.itens) ? r.itens : []; desenharLogo(); });
   document.addEventListener("vista", (e) => { if (e.detail === "bens" && sujo) desenhar(); });
 

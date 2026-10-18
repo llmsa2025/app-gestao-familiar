@@ -141,7 +141,7 @@
         if (i && i.categoria) contagem.set(i.categoria, (contagem.get(i.categoria) || 0) + 1);
       }
       for (const [nome, quantos] of contagem) {
-        juntar(nome, { fonte: FONTE_PROJETO, id, doc: proj, rotulo: `${proj.nome || "projeto"} — ${quantos} item(ns)` });
+        juntar(nome, { fonte: FONTE_PROJETO, id, doc: proj, rotulo: `${proj.nome || "projeto"} (${quantos} item(ns))` });
       }
     }
     return indiceUsos;
@@ -246,7 +246,7 @@
   function atualizarSubgrupos(escolhido = "") {
     const subgrupos = grupoEscolhido()?.subgrupos || [];
     $("cat-subgrupo-campo").hidden = !subgrupos.length;
-    $("cat-subgrupo").innerHTML = '<option value="">— escolha o subgrupo —</option>' +
+    $("cat-subgrupo").innerHTML = '<option value="">Escolha o subgrupo</option>' +
       subgrupos.map((s) => '<option value="' + esc(s.id) + '">' + esc(s.nome) + '</option>').join("");
     $("cat-subgrupo").value = subgrupos.some((s) => s.id === escolhido) ? escolhido : "";
   }
@@ -441,7 +441,7 @@
       "Nada é apagado antes de o remanejo dar certo.";
 
     $("cat-destino").innerHTML =
-      '<option value="">— escolha a categoria —</option>' +
+      '<option value="">Escolha a categoria</option>' +
       Object.values(estado.categorias)
         .filter((x) => x.id !== c.id)
         .sort((a, b) => a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR"))

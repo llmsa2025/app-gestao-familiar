@@ -79,7 +79,7 @@ try {
     assert.equal(await numero(pagina, "dre", "Receitas no período"), 0);
     await periodo(pagina, "dre", "2026-09-01", "2026-09-30");
     assert.equal(await numero(pagina, "dre", "Receitas no período"), 16000);
-    // O Fluxo conta o salário de ciclo no mês da competência (13/10/2026, pedido do Lucas): o de 28/09 é de
+    // O Fluxo conta o salário de ciclo no mês da competência (13/10/2026, pedido do usuário): o de 28/09 é de
     // outubro — como no DRE em competência, e não como o DRE em caixa, que segue a data do banco.
     await periodo(pagina, "fluxo", "2026-09-01", "2026-09-30");
     assert.equal(await numero(pagina, "fluxo", "Entradas no período"), 8000, "Setembro: só o salário de 05/09");

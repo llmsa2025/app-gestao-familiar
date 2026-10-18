@@ -171,7 +171,7 @@ try {
     assert.equal(await numero(pagina, "fluxo", "Entradas no período"), 9000, "Os resgates não são receita: só o salário fica em Entradas");
     assert.equal(await numero(pagina, "fluxo", "Saldo ao fim do período"), SALDO, "…mas o dinheiro voltou para a conta: o saldo é o do banco");
     const tabela = await pagina.$eval("#fluxo-tabela", (e) => e.innerText.replace(/\s+/g, " "));
-    assert.match(tabela, /Investimentos[\s\S]*Resgates[^R]*\+?R\$\s*9\.950,20/, "O bloco Investimentos mostra os dois resgates somados, na linha Resgates");
+    assert.match(tabela, /Resgates de investimento[^R]*\+?R\$\s*9\.950,20/, "A linha de devolução de caixa mostra os dois resgates somados");
     await periodo(pagina, "dre", "2026-10-01", "2026-10-31");
     assert.equal(await numero(pagina, "dre", "Receitas no período"), 9000, "O DRE também não conta o resgate como receita");
     assert.equal(await numero(pagina, "dre", "Resgates (fora do DRE)"), 9950.20);
@@ -194,7 +194,7 @@ try {
     assert.equal(await numero(pagina, "fluxo", "Entradas no período"), 0, "Resgate previsto não é receita prevista");
     assert.equal(await numero(pagina, "fluxo", "Saldo ao fim do período"), SALDO + 2000, "…mas entra no saldo projetado");
     assert.deepEqual(previsto.erros, []);
-    console.log("OK: resgate previsto vai para o bloco Investimentos, não para as entradas.");
+    console.log("OK: resgate previsto vai para a devolução de caixa, não para as entradas.");
   } finally { await previsto.navegador.close(); }
 
   // -------------------------------------------------------------------------

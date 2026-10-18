@@ -70,7 +70,7 @@
     [TIPOS[0]]: "Corretora no Brasil (ações, opções, fundos). O saldo é o do banco ou o que você informa em “Atualizar saldo”.",
     [TIPOS[1]]: "Corretora ou plataforma no exterior (Avenue, Bybit…): fica à parte da financeira. Se o saldo é em dólar, marque “Este investimento é em dólar” abaixo.",
     [TIPOS[2]]: "Aplicação em banco ou corretora. Os aportes e resgates vêm da conta quando você vincula o lançamento do extrato.",
-    [TIPOS[3]]: "Cada parcela paga é um aporte. Enquanto não for contemplado, o saldo é o valor atual do bem (a carta de hoje); informe em “Atualizar pelo extrato”, junto com o pago e o saldo devedor. Quando for contemplado, use o botão “Foi contemplado”: ele cria a dívida no Endividamento e encerra o investimento — o histórico fica.",
+    [TIPOS[3]]: "Cada parcela paga é um aporte. Enquanto não for contemplado, o saldo é o valor atual do bem (a carta de hoje); informe em “Atualizar pelo extrato”, junto com o pago e o saldo devedor. Quando for contemplado, use o botão “Foi contemplado”: ele cria a dívida no Endividamento e encerra o investimento, e o histórico fica.",
     [TIPOS[4]]: "Aporte = o que você emprestou; resgate = o que te devolveram (principal e juros). O saldo é o que ainda falta receber.",
   };
   const SEM_PESSOA = "__sem";
@@ -107,6 +107,7 @@
     carteira: [],        // [{ id, nome, instituicao, tipo, pessoaId, observacao, encerrado, movimentos, posicoes, pluggyIds, consorcio }]
     registros: [],       // os registros recorrentes (Registros): o "Foi contemplado" precisa saber qual lança a parcela do consórcio
     vinculos: {},        // chave do lançamento → id do investimento (texto)
+    noProjeto: {},       // chave do lançamento → projeto (o que a tela de Projetos publica): esse lançamento não é aporte nem resgate
     memoria: {},         // chave do estabelecimento → id do investimento (só sugestão)
     pessoas: [],         // as do cadastro (Configuração): [{ id, nome, primeiro_nome }]
     // O que a tela de Registros já sabe e a categoria de um lançamento precisa
@@ -365,7 +366,7 @@
       const dia = String(l.d).slice(0, 10);
       if ((de && dia < de) || (ate && dia > ate)) continue;
       const chave = chaveLanc(l);
-      if (estado.vinculos[chave]) continue;
+      if (estado.vinculos[chave] || estado.noProjeto[chave]) continue;
       if (dona && !window.PESSOAS.ehDaPessoa(window.PESSOAS.dono(contaPorIndice[l.c]), dona.nome)) continue;
       if (q) {
         if (!semAcento(l.s).includes(q) && !(Number.isFinite(alvoValor) && Math.abs(Math.abs(l.v) - alvoValor) < 0.005)) continue;
@@ -390,7 +391,7 @@
   // O "i" ao lado de um número: uma frase curta, na mesma caixinha do DRE e do Fluxo
   const infoI = (chave, titulo) => '<span class="info" data-info="' + chave + '" role="button" tabindex="0" title="' + titulo + '">i</span>';
   const DICAS = {
-    resultado: "<strong>Resultado</strong> — quanto os investimentos renderam: <strong>saldo de hoje + resgates − aportes</strong>. Positivo, rendeu; negativo, perdeu. Só entram os que têm saldo informado e algum aporte ou resgate lançado (sem isso o número seria inventado) e que não estão encerrados. Em dólar, pelo equivalente em R$ de hoje.",
+    resultado: "<strong>Resultado</strong>: quanto os investimentos renderam, que é <strong>saldo de hoje + resgates − aportes</strong>. Positivo, rendeu; negativo, perdeu. Só entram os que têm saldo informado e algum aporte ou resgate lançado (sem isso o número seria inventado) e que não estão encerrados. Em dólar, pelo equivalente em R$ de hoje.",
   };
   // O que fica ao lado do resultado: o rendimento sobre os aportes e quantos investimentos ficaram de fora
   const metaDoResultado = (t) => (t.nResultado ? (t.rendimento === null ? "saldo + resgates − aportes" : porCento(t.rendimento) + " sobre os aportes") : "informe o saldo e os aportes")
@@ -424,7 +425,7 @@
       : "";
 
     window.TABELA.escrever($("inv-lista"), !estado.carteira.length
-      ? '<p class="vazio">Nenhum investimento cadastrado. Use “Novo investimento” para criar um — por exemplo “CDB Itaú” da Marina, juntando as linhas que o banco compartilha, ou “Genial”, onde você informa o saldo e os aportes à mão.</p>'
+      ? '<p class="vazio">Nenhum investimento cadastrado. Use “Novo investimento” para criar um (por exemplo “CDB Itaú” da Marina, juntando as linhas que o banco compartilha, ou “Genial”, onde você informa o saldo e os aportes à mão).</p>'
       : aberta ? detalheDaPessoa(aberta, vistos, doEscopo.length) : listaDePessoas(todos.filter(passaTipo)));
 
     desenharExtrato();
@@ -465,7 +466,7 @@
       // Com filtro de tipo ligado, pessoa sem nenhum investimento dele não tem o que mostrar
       .filter((g) => !estado.filtroTipo || g.itens.length);
     if (!linhas.length) return '<p class="vazio">Nenhum investimento neste filtro.</p>';
-    return '<p class="suave pequeno">Clique numa pessoa para ver os investimentos dela, com os aportes e os resgates — e para vincular os lançamentos do extrato a eles.</p>' +
+    return '<p class="suave pequeno">Clique numa pessoa para ver os investimentos dela, com os aportes e os resgates, e para vincular os lançamentos do extrato a eles.</p>' +
       '<div class="bloco"><div class="rolagem"><table class="inv-pessoas"><thead><tr><th>Pessoa</th><th class="num">Investimentos</th><th class="num">Investido hoje</th><th class="num">Aportes</th><th class="num">Resgates</th><th class="num">Resultado' + infoI("resultado", "O que é o resultado") + '</th><th class="num">' + esc(nomeMes(hojeSP.slice(0, 7))) + "</th><th></th></tr></thead><tbody>" +
       linhas.map(({ id, itens: dela }) => {
         const t = totais(dela);
@@ -532,7 +533,7 @@
     const nome = '<div class="nome-inv">' + alternar + "<strong>" + esc(a.nome) + "</strong> " +
       (a.consorcio && a.consorcio.contempladoEm ? '<span class="pilula neutro">contemplado em ' + dataBR(a.consorcio.contempladoEm) + "</span> " : a.encerrado ? '<span class="pilula atencao">encerrado</span> ' : "") + (a.emDolar ? '<span class="pilula neutro">US$</span> ' : "") +
       (a.reservaEmergencia ? '<span class="pilula neutro" title="Conta como reserva de emergência na Saúde financeira">Reserva</span> ' : "") +
-      '<span class="meta">' + esc(a.instituicao || "") + (a.observacao ? (a.instituicao ? " — " : "") + esc(a.observacao) : "") + "</span></div>";
+      '<span class="meta">' + esc(a.instituicao || "") + (a.observacao ? (a.instituicao ? " · " : "") + esc(a.observacao) : "") + "</span></div>";
     // Recolhido: o nome e os números, em duas linhas curtas. Aberto: as ações, o mês e os detalhes.
     if (recolhido) return '<div class="bloco recolhido" data-inv="' + esc(a.id) + '"><div class="bloco-topo">' + nome + "</div>" + numeros + "</div>";
     return '<div class="bloco" data-inv="' + esc(a.id) + '">' +
@@ -703,7 +704,7 @@
     const noPeriodo = de || ate ? " no período" : "";
     $("inv-extrato-meta").textContent = soltos
       ? soltos + " lançamento(s)" + (pessoa ? " de " + nomeDaPessoa(pessoa) : "") + " parecem aporte ou resgate" + noPeriodo + " e ainda não estão em nenhum investimento. Vincular não muda a categoria nem o saldo da conta."
-      : "Nenhum lançamento solto que pareça aporte ou resgate" + noPeriodo + ". Para achar outro — um PIX ou TED para a corretora, por exemplo — busque pelo texto ou pelo valor, ou use “Todos os lançamentos” com o período.";
+      : "Nenhum lançamento solto que pareça aporte ou resgate" + noPeriodo + ". Para achar outro (um PIX ou TED para a corretora, por exemplo), busque pelo texto ou pelo valor, ou use “Todos os lançamentos” com o período.";
     $("inv-extrato-alternar").textContent = aberto ? "Esconder" : "Conferir";
     $("inv-extrato-alternar").setAttribute("aria-expanded", String(aberto));
     $("inv-extrato-corpo").hidden = !aberto;
@@ -768,7 +769,7 @@
     botao.textContent = e.confirmando ? "Confirmar: vincular " + n + "?" : n ? "Vincular " + n + " marcado" + (n > 1 ? "s" : "") : "Vincular marcados";
     botao.className = "botao " + (e.confirmando ? "perigo" : "primario");
     $("inv-lote-texto").textContent = n
-      ? n + " marcado" + (n > 1 ? "s" : "") + (e.destino ? "" : " — escolha o investimento ao lado")
+      ? n + " marcado" + (n > 1 ? "s" : "") + (e.destino ? "" : ": escolha o investimento ao lado")
       : e.ultimo || "Escolha o investimento e marque os lançamentos.";
     const todos = $("inv-marcar-todos");
     const lista = $("inv-sugestoes")._lista || [];
@@ -1004,7 +1005,7 @@
     const f = $("form-inv-mov");
     f.dataset.inv = a.id;
     f.dataset.id = m ? m.id : "";
-    $("form-inv-mov-titulo").textContent = (m ? "Editar movimento — " : "Aporte ou resgate — ") + a.nome;
+    $("form-inv-mov-titulo").textContent = (m ? "Editar movimento de " : "Aporte ou resgate em ") + a.nome;
     $("inv-m-tipo").value = m ? m.tipo : "aporte";
     $("inv-m-data").value = m ? m.data : hojeSP;
     $("inv-m-valor").value = m ? formatarValor(m.valor) : "";
@@ -1038,7 +1039,7 @@
     f.dataset.inv = a.id;
     f.dataset.id = p ? p.id : "";
     const cota = ehConsorcio(a);
-    $("form-inv-pos-titulo").textContent = cota ? "Extrato da cota — " + a.nome : "Saldo de " + a.nome + " — quanto vale";
+    $("form-inv-pos-titulo").textContent = cota ? "Extrato da cota de " + a.nome : "Saldo de " + a.nome + " (quanto vale hoje)";
     $("inv-p-data").value = p ? p.data : hojeSP;
     $("inv-p-valor").value = p ? formatarValor(p.valor) : "";
     $("inv-p-valor-rotulo").textContent = cota ? "Valor atual do bem" : a.emDolar ? "Quanto vale (US$)" : "Quanto vale";
@@ -1104,7 +1105,7 @@
     f.dataset.inv = a.id;
     f.dataset.parcelaManual = "";
     f.dataset.proximaManual = "";
-    $("form-inv-contemplar-titulo").textContent = "Consórcio contemplado — " + a.nome;
+    $("form-inv-contemplar-titulo").textContent = "Consórcio contemplado: " + a.nome;
     $("inv-t-data").value = hojeSP;
     $("inv-t-forma").innerHTML = listaDeOpcoes(FORMAS_DE_CONTEMPLACAO, "");
     $("inv-t-forma").value = "";
@@ -1373,6 +1374,7 @@
   window.ouvirTelas("depara", (d) => { estado.depara = d || {}; esquecerParece(); desenharLogo(); });
   window.ouvirTelas("classificacoes-todas", (d) => { estado.nomes = d || {}; esquecerParece(); });
   window.ouvirTelas("pessoas", (lista) => { estado.pessoas = lista || []; montarPessoas(); desenharLogo(); });
+  window.ouvirTelas("projetos-vinculos", (d) => { estado.noProjeto = d || {}; desenharLogo(); });
   window.CATEGORIAS.aoMudar(() => { esquecerParece(); desenharLogo(); });
   document.addEventListener("vista", (e) => { if (e.detail === "investimentos") desenhar(); });
 

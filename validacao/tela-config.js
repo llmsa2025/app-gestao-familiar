@@ -370,9 +370,9 @@
     if (g.registroId) return envolverObservacao(g, itensDoRegistro(rec, p));
     const media = g.qtd ? g.total / g.qtd : 0;
     const itens = [g.qtd + " lançamento(s) · " + brl.format(g.total) + " no ano · média " + brl.format(media)];
-    if (p.mudou) itens.push("mudou " + p.campos.join(", ") + " — clique em Reclassificar para aplicar");
+    if (p.mudou) itens.push("mudou " + p.campos.join(", ") + ". Clique em Reclassificar para aplicar");
     if (p.fora) itens.push(p.fora + " lançamento(s) com ajuste próprio, que o Reclassificar sobrescreve");
-    if (p.divergem && !p.mudou) itens.push("as variações deste lugar estão com categorias diferentes — o Reclassificar iguala");
+    if (p.divergem && !p.mudou) itens.push("as variações deste lugar estão com categorias diferentes. O Reclassificar iguala");
     if (rec) itens.push("previsão: " + brl.format(rec.valor || 0) + (rec.modo === "somar" ? " (soma do mês)" : "") + " todo dia " + (rec.dia || "?"));
     if (!p.v.categoria) itens.push("ainda sem categoria");
     if (!p.v.nome) itens.push("sem nome: nos Registros aparece a descrição do extrato");
@@ -389,7 +389,7 @@
         : !registroAtivo(rec) ? "registro encerrado em " + mesBR(rec.fim) + " · sem lançamento ligado do extrato"
         : "registro sem lançamento ligado do extrato",
     ];
-    if (p.mudou) itens.push("mudou " + p.campos.join(", ") + " — clique em Reclassificar para aplicar ao registro");
+    if (p.mudou) itens.push("mudou " + p.campos.join(", ") + ". Clique em Reclassificar para aplicar ao registro");
     itens.push("a categoria vale para todos os meses deste registro · para encerrar ou excluir, use Registros");
     itens.push("previsão: " + brl.format(rec.valor || 0) + (rec.modo === "somar" ? " (soma do mês)" : "") + " todo dia " + (rec.dia || "?"));
     if (rec.referencia) itens.push("referência: " + rec.referencia);

@@ -569,9 +569,9 @@ try {
     conferir("Contemplar: a dívida não tem calendário automático (a conta é saldo ÷ parcelas), senão contaria 180 parcelas de novo", divida.primeira_parcela === null);
     const bem = (await listar("bens")).find((b) => b.dados.dividaId === d.consorcio.dividaId)?.dados;
     conferir("Contemplar: o bem nasce em Bens com o valor da carta, ligado à dívida",
-      (await listar("bens")).length === nBens + 1 && bem && bem.nome === "Imóvel — Consórcio Teste" && bem.tipo === "Imóvel" && bem.valorAquisicao === 80000 && bem.dataAquisicao === "2026-10-16"
+      (await listar("bens")).length === nBens + 1 && bem && bem.nome === "Imóvel: Consórcio Teste" && bem.tipo === "Imóvel" && bem.valorAquisicao === 80000 && bem.dataAquisicao === "2026-10-16"
       && bem.avaliacoes.length === 1 && bem.avaliacoes[0].valor === 80000 && bem.pessoaId === String(pessoa.id), JSON.stringify(bem));
-    conferir("Contemplar: a dívida guarda o nome do bem", divida.bem === "Imóvel — Consórcio Teste");
+    conferir("Contemplar: a dívida guarda o nome do bem", divida.bem === "Imóvel: Consórcio Teste");
     const regDepois = (await achar("recorrentes", regCota.id)).dados;
     conferir("Contemplar: o registro da meia parcela termina no mês anterior à 1ª parcela da dívida (2026-10)", regDepois.fim === "2026-10", String(regDepois.fim));
     conferir("Contemplar: o registro de outro investimento não é tocado", (await achar("recorrentes", regOutro.id)).dados.fim === null);
@@ -596,12 +596,12 @@ try {
     })());
 
     // sem bem e sem encerrar registro (o Lucas desmarcou); e o nome do bem já existe
-    await gravar("bens", "novo", { nome: "Imóvel — Consórcio Segundo", tipo: "Imóvel", pessoaId: "", dataAquisicao: null, valorAquisicao: null, dividaId: "", observacao: "", encerrado: false, avaliacoes: [] });
+    await gravar("bens", "novo", { nome: "Imóvel: Consórcio Segundo", tipo: "Imóvel", pessoaId: "", dataAquisicao: null, valorAquisicao: null, dividaId: "", observacao: "", encerrado: false, avaliacoes: [] });
     const c2 = await gravar("carteira", "novo", { ...base, nome: "Consórcio Segundo", posicoes: [] });
     await gravar("carteira", c2.id, { ...base, nome: "Consórcio Segundo", posicoes: [], contemplacao: { ...pedido, criarBem: true, encerrarRegistros: false } });
     const d2 = (await achar("carteira", c2.id)).dados;
     const bem2 = (await listar("bens")).find((b) => b.dados.dividaId === d2.consorcio.dividaId)?.dados;
-    conferir("Contemplar: se já existe um bem com o nome, o novo recebe a cota no nome (sem conflito)", bem2 && bem2.nome === "Imóvel — Consórcio Segundo (456)", bem2 && bem2.nome);
+    conferir("Contemplar: se já existe um bem com o nome, o novo recebe a cota no nome (sem conflito)", bem2 && bem2.nome === "Imóvel: Consórcio Segundo (456)", bem2 && bem2.nome);
     const c3 = await gravar("carteira", "novo", { ...base, nome: "Consórcio Terceiro", posicoes: [] });
     const nBensAntes3 = (await listar("bens")).length;
     await gravar("carteira", c3.id, { ...base, nome: "Consórcio Terceiro", posicoes: [], contemplacao: { ...pedido, criarBem: false, encerrarRegistros: false } });
@@ -1072,6 +1072,121 @@ try {
   await apagar("projetos", novoProj.id);
   conferir("Projeto: apagar apaga de verdade", !(await achar("projetos", novoProj.id)));
 
+  // ---- projetos (migration 028): o lançamento do extrato vinculado a um projeto e, se quiser, a um item dele ----
+  {
+    const itensDaViagem = [
+      { id: "i-hot", descricao: "Hotel", valor: 4000, data: "2027-01-12", categoria: "", pago: false },
+      { id: "i-pas", descricao: "Passagens", valor: 3000, data: "2027-01-10", categoria: "", pago: false },
+    ];
+    const viagem = await gravar("projetos", "novo", { nome: "Viagem", tipo: "Viagem", status: "Em andamento", itens: itensDaViagem });
+    const obra = await gravar("projetos", "novo", { nome: "Obra", tipo: "Reforma", status: "Planejado", itens: [] });
+    const lancamento = async (nome, valor, { conta_id = conta.id, copia = false, tipo = null, semPar = false } = {}) => {
+      const h = `${conta_id}|2026-10-10T12:00:00.000Z|${valor}|PROJ ${nome}`;
+      await consultar("INSERT INTO lancamentos (conta_id, hash_natural, data, valor, descricao, copia, tipo_transacao, sem_par) VALUES ($1, $2, '2026-10-10', $3, $4, $5, $6, $7)",
+        [conta_id, h, valor, "PROJ " + nome, copia, tipo, semPar]);
+      return h;
+    };
+    const saida1 = await lancamento("hotel", -1000);
+    const saida2 = await lancamento("passagem", -3000);
+    const entrada = await lancamento("reembolso", 500);
+    const copiaPluggy = await lancamento("copia", -10, { copia: true });
+    const fatura = await lancamento("fatura", -800, { tipo: "fatura" });
+    const transfComPar = await lancamento("transf", -100, { tipo: "transferencia" });
+    const transfSemPar = await lancamento("transf-sem-par", -50, { tipo: "transferencia", semPar: true });
+    const contaCartao = await uma("INSERT INTO contas (conexao_id, pluggy_account_id, tipo, nome) VALUES ($1, 'cartao-proj', 'CREDIT', 'Cartão projeto') RETURNING id", [conexao.id]);
+    // A Pluggy manda a compra do cartão com sinal POSITIVO (invertido): o banco guarda assim e a leitura devolve o sinal da casa
+    const compraCartao = await lancamento("cartao", 250, { conta_id: contaCartao.id });
+
+    // Vincular a um item: a leitura devolve o valor, a data e o texto do lançamento (o total do projeto não depende da página)
+    await gravar("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id, itemId: "i-hot" });
+    let v = (await achar("vinculos_projetos", saida1))?.dados;
+    conferir("Projeto, vínculo: volta com o projeto, o item, o valor, a data e o texto do lançamento",
+      !!v && v.projetoId === viagem.id && v.itemId === "i-hot" && v.valor === -1000 && v.data === "2026-10-10" && v.descricao === "PROJ hotel" && v.cartao === false, JSON.stringify(v));
+    await gravar("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id, itemId: "i-pas" });
+    conferir("Projeto, vínculo: mudar o item move o lançamento (continua um vínculo só)", (await achar("vinculos_projetos", saida1)).dados.itemId === "i-pas" && (await listar("vinculos_projetos")).length === 1);
+    await gravar("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id });
+    conferir("Projeto, vínculo: sem item vale (o lançamento é do projeto, não de um item)", (await achar("vinculos_projetos", saida1)).dados.itemId === "");
+
+    // Em lote: um vínculo por chave; chave que não existe desfaz tudo
+    await gravar("vinculos_projetos", "lote", { chaves: [saida1, saida2], projetoId: viagem.id, itemId: "i-hot" });
+    conferir("Projeto, vínculo: o lote grava um vínculo por lançamento", (await listar("vinculos_projetos")).length === 2 && (await achar("vinculos_projetos", saida2)).dados.itemId === "i-hot");
+    conferir("Projeto, vínculo: lançamento que não existe no lote é recusado e nada é gravado",
+      (await recusa("vinculos_projetos", "lote", { chaves: [entrada, "chave-que-nao-existe"], projetoId: viagem.id })) === 404 && !(await achar("vinculos_projetos", entrada)));
+    conferir("Projeto, vínculo: projeto que não existe é recusado", (await recusa("vinculos_projetos", saida1, { chave: saida1, projetoId: "999999" })) === 404);
+    conferir("Projeto, vínculo: item que não está no projeto é recusado", (await recusa("vinculos_projetos", saida1, { chave: saida1, projetoId: obra.id, itemId: "i-hot" })) === 404);
+    conferir("Projeto, vínculo: sem projeto é recusado", (await recusa("vinculos_projetos", saida1, { chave: saida1 })) === 400);
+
+    // O que não é gasto nem ganho do projeto
+    conferir("Projeto, vínculo: entrada com item é recusada (a entrada vai para o projeto, sem item)", (await recusa("vinculos_projetos", entrada, { chave: entrada, projetoId: viagem.id, itemId: "i-hot" })) === 400);
+    await gravar("vinculos_projetos", entrada, { chave: entrada, projetoId: viagem.id });
+    conferir("Projeto, vínculo: entrada sem item é aceita", (await achar("vinculos_projetos", entrada)).dados.valor === 500);
+    conferir("Projeto, vínculo: cópia da Pluggy é recusada", (await recusa("vinculos_projetos", copiaPluggy, { chave: copiaPluggy, projetoId: viagem.id })) === 400);
+    conferir("Projeto, vínculo: pagamento de fatura é recusado (as compras do cartão é que contam)", (await recusa("vinculos_projetos", fatura, { chave: fatura, projetoId: viagem.id })) === 400);
+    conferir("Projeto, vínculo: transferência com as duas pernas é recusada", (await recusa("vinculos_projetos", transfComPar, { chave: transfComPar, projetoId: viagem.id })) === 400);
+    await gravar("vinculos_projetos", transfSemPar, { chave: transfSemPar, projetoId: viagem.id });
+    conferir("Projeto, vínculo: transferência sem a outra perna (vira saída de verdade) é aceita", !!(await achar("vinculos_projetos", transfSemPar)));
+    await gravar("vinculos_projetos", compraCartao, { chave: compraCartao, projetoId: viagem.id, itemId: "i-pas" });
+    const vc = (await achar("vinculos_projetos", compraCartao)).dados;
+    conferir("Projeto, vínculo: compra no cartão é aceita com item, volta marcada como cartão e com o sinal da casa (saída)", vc.cartao === true && vc.valor === -250 && vc.itemId === "i-pas", JSON.stringify(vc));
+    await apagar("vinculos_projetos", transfSemPar);
+
+    // Um lançamento só mora num lugar: investimento, bem, crédito de empréstimo ou projeto (nos dois sentidos)
+    const invProj = await gravar("carteira", "novo", { nome: "CDB Projeto", tipo: "Renda fixa", pluggyIds: [], posicoes: [], movimentos: [] });
+    const bemProj = await gravar("bens", "novo", { nome: "Bem Projeto", tipo: "Imóvel", dividaId: "", avaliacoes: [] });
+    const dividaProj = await uma("INSERT INTO dividas (nome, tipo, saldo) VALUES ('Empréstimo projeto', 'Empréstimo', 1000) RETURNING id");
+    conferir("Projeto, exclusividade: lançamento que já é de projeto não vira aporte de investimento", (await recusa("vinculos_invest", saida1, { chave: saida1, ativoId: invProj.id })) === 409);
+    conferir("Projeto, exclusividade: nem custo de bem", (await recusa("vinculos_bens", saida1, { chave: saida1, bemId: bemProj.id, custo: "IPTU" })) === 409);
+    conferir("Projeto, exclusividade: nem crédito de empréstimo", (await recusa("vinculos_divida", entrada, { chave: entrada, dividaId: String(dividaProj.id) })) === 409);
+    await apagar("vinculos_projetos", saida1);
+    await gravar("vinculos_invest", saida1, { chave: saida1, ativoId: invProj.id });
+    conferir("Projeto, exclusividade: lançamento que já é aporte de investimento não vira de projeto", (await recusa("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id })) === 409);
+    await apagar("vinculos_invest", saida1);
+    await gravar("vinculos_bens", saida1, { chave: saida1, bemId: bemProj.id, custo: "IPTU" });
+    conferir("Projeto, exclusividade: nem o que já é custo de bem", (await recusa("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id })) === 409);
+    await apagar("vinculos_bens", saida1);
+    await apagar("vinculos_projetos", entrada);
+    await gravar("vinculos_divida", entrada, { chave: entrada, dividaId: String(dividaProj.id) });
+    conferir("Projeto, exclusividade: nem o crédito de um empréstimo", (await recusa("vinculos_projetos", entrada, { chave: entrada, projetoId: viagem.id })) === 409);
+    await apagar("vinculos_divida", entrada);
+
+    // A baixa de um Registro com etiqueta de investimento não leva para o investimento um lançamento que já é de projeto
+    await gravar("vinculos_projetos", saida1, { chave: saida1, projetoId: viagem.id });
+    const regProj = await gravar("recorrentes", null, { nome: "Aporte do projeto", categoria: "Aporte em investimento", natureza: "saida", valor: 1000, dia: 10, inicio: "2026-10",
+      variacao: "media", modo: "somar", opcional: true, investimento_id: Number(invProj.id) });
+    await gravar("pagamentos", `${regProj.id}__2026-10`, { recorrenteId: regProj.id, mes: "2026-10", data: "2026-10-10", valor: 1000, forma: "extrato", chaveLanc: saida1 });
+    conferir("Projeto, exclusividade: a baixa de um Registro com etiqueta de investimento não tira o lançamento do projeto",
+      !(await achar("vinculos_invest", saida1)) && (await achar("vinculos_projetos", saida1))?.dados.projetoId === viagem.id);
+    await apagar("pagamentos", `${regProj.id}__2026-10`);
+    await apagar("recorrentes", regProj.id);
+    await apagar("carteira", invProj.id);
+    await apagar("bens", bemProj.id);
+    await consultar("DELETE FROM dividas WHERE id = $1", [dividaProj.id]);
+
+    // Os itens são apagados e reinseridos a cada gravação: o vínculo sobrevive porque guarda o id do item, em texto
+    await gravar("vinculos_projetos", saida2, { chave: saida2, projetoId: viagem.id, itemId: "i-hot" });
+    let doc = (await achar("projetos", viagem.id)).dados;
+    await gravar("projetos", viagem.id, { ...doc, itens: doc.itens.map((i) => ({ ...i, pago: true })) });
+    conferir("Projeto: marcar o item como quitado não solta o vínculo (ele mora no id do item, não no id do banco)", (await achar("vinculos_projetos", saida2)).dados.itemId === "i-hot");
+    await gravar("projetos", viagem.id, { ...doc, itens: doc.itens.filter((i) => i.id !== "i-hot") });
+    v = (await achar("vinculos_projetos", saida2))?.dados;
+    conferir("Projeto: tirar o item do projeto deixa o lançamento no projeto, só sem item", !!v && v.projetoId === viagem.id && v.itemId === "");
+
+    // Migration 028: o item antigo (sem `ref`) ganha um, igual ao id que a tela já enxergava
+    await consultar("INSERT INTO projeto_itens (projeto_id, ref, descricao, valor, data, pago) VALUES ($1, NULL, 'Item legado', 10, '2027-02-01', false)", [Number(obra.id)]);
+    const legado = await uma("SELECT id FROM projeto_itens WHERE projeto_id = $1 AND descricao = 'Item legado'", [Number(obra.id)]);
+    const idAntes = (await achar("projetos", obra.id)).dados.itens[0].id;
+    await consultar("UPDATE projeto_itens SET ref = id::text WHERE ref IS NULL");
+    conferir("Projeto, migration 028: o item sem `ref` ganha `ref = id` e a tela segue vendo o mesmo id", (await achar("projetos", obra.id)).dados.itens[0].id === idAntes && idAntes === String(legado.id), idAntes);
+
+    // Apagar o projeto leva os vínculos junto e NÃO apaga o lançamento do extrato
+    await apagar("projetos", viagem.id);
+    conferir("Projeto: apagar o projeto leva os vínculos e não apaga os lançamentos",
+      (await listar("vinculos_projetos")).length === 0 && !!(await uma("SELECT 1 AS x FROM lancamentos WHERE hash_natural = $1", [saida1])));
+    await apagar("projetos", obra.id);
+    await consultar("DELETE FROM lancamentos WHERE hash_natural = ANY($1::text[])", [[saida1, saida2, entrada, copiaPluggy, fatura, transfComPar, transfSemPar, compraCartao]]);
+    await consultar("DELETE FROM contas WHERE id = $1", [contaCartao.id]);
+  }
+
   // -------------------------------------------------------------------------
   // Pronto para a Vercel: o que vivia na memória do processo vive no banco
   // -------------------------------------------------------------------------
@@ -1188,6 +1303,11 @@ try {
     conferir("Sem sessão: o arquivo de código manda para o login e não entrega nada", rSemJs.status === 302 && rSemJs.cabecalhos.Location === "/entrar" && !rSemJs.corpo, String(rSemJs.status));
     const rSemDados = await semSessao(urlDados);
     conferir("Sem sessão: os dados respondem 401 e não entregam nada", rSemDados.status === 401 && !rSemDados.corpo.includes("GF_DADOS"), String(rSemDados.status));
+    // O ícone da aba é pedido pelo navegador na tela de entrar também: tem de sair sem sessão (ícone não conta nada sobre a família)
+    for (const [rota, tipo] of [["/icone-favicon.svg", "image/svg+xml"], ["/icone-favicon-32.png", "image/png"], ["/icone-favicon-48.png", "image/png"]]) {
+      const r = await semSessao(rota);
+      conferir(`Sem sessão: ${rota} é servido (a aba da tela de entrar mostra a logo)`, r.status === 200 && String(r.cabecalhos["Content-Type"]).startsWith(tipo), `${r.status} ${r.cabecalhos["Content-Type"]}`);
+    }
 
     await pagina.invalidarPagina();
     conferir("Página separada: invalidar apaga a casca e os dados, e deixa o código (o nome é o hash)",

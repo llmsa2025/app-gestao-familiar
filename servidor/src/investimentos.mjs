@@ -9,6 +9,7 @@
 // As regras de negócio moram aqui e não na tela: a tela é código do navegador, e o que o banco
 // aceita não pode depender de ela se comportar.
 import { todas, uma, consultar, transacao } from "./db.mjs";
+import { lancamentoNoProjeto } from "./projetos.mjs";
 import { validarConsorcio, validarContemplacao, validarExtratoDaPosicao, lerConsorcios, gravarConsorcio, gravarExtratosDasPosicoes, contemplar } from "./consorcio.mjs";
 
 const falhar = (mensagem, status = 400) => { throw Object.assign(new Error(mensagem), { status }); };
@@ -258,6 +259,9 @@ export async function gravarVinculos(id, doc) {
       )).rows[0];
       if (emBem) falhar(`Esse lançamento já é custo do bem "${emBem.nome}". Tire de lá primeiro.`, 409);
     }
+    // ...nem lançamento de um projeto (a tabela só existe depois da migration 028).
+    const noProjeto = await lancamentoNoProjeto(db, lancs.map((l) => l.id));
+    if (noProjeto) falhar(noProjeto, 409);
     for (const l of lancs) {
       await db.query(
         `INSERT INTO inv_vinculos_lanc (lancamento_id, ativo_id) VALUES ($1, $2)

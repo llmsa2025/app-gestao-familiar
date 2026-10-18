@@ -52,9 +52,7 @@ try {
     await pagina.click('#menu [data-ir="fluxo"]');
     const fluxoAntes = await cards(pagina, "fluxo-resumo");
     assert.equal(valor(card(fluxoAntes, "Entradas no período")), 8000);
-    // O aporte (R$ 100 em "Aplicação", grupo Investimentos) não é gasto: sai das Saídas e vira o líquido do bloco Investimentos (decisão de 14/10)
-    assert.equal(valor(card(fluxoAntes, "Saídas no período")), 500);
-    assert.equal(valor(card(fluxoAntes, "Investimentos")), -100);
+    assert.equal(valor(card(fluxoAntes, "Saídas no período")), 600);
     await irCategorias(pagina);
     await pagina.click('[data-novo-subgrupo="receitas"]');
     assert.equal(await pagina.inputValue('#cat-estrutura-nome'), "Geral");

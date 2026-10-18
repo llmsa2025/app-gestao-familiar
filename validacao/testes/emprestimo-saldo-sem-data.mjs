@@ -106,7 +106,7 @@ await m.navegador.close();
   await r.navegador.close();
 }
 
-// 3. Dívida NOVA cadastrada pelo pop-up: o valor soma na Dívida total e na Dívida de Face (pedido do Lucas, 15/10/2026)
+// 3. Dívida NOVA cadastrada pelo pop-up: o valor soma na Dívida total e na Dívida de Face (pedido do usuário, 15/10/2026)
 {
   const { navegador, pagina, erros } = await abrir(caminho, { dividas: {} }, "dividas", { agora });
   await pagina.click("#dividas-abas [data-aba=emprestimos]");

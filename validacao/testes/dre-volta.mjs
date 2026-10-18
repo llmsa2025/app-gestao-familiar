@@ -1,4 +1,4 @@
-// O DRE saiu da visualização em 16/10/2026 (pedido do Lucas), mas o código continua aí para voltar quando ele quiser.
+// O DRE saiu da visualização em 16/10/2026 (pedido do usuário), mas o código continua aí para voltar quando ele quiser.
 // Aqui se confere os dois lados: no layout de produção ele não existe em lugar nenhum da página; ligado por
 // GF_VISTAS_VOLTAR=dre ele volta inteiro (menu, barra do celular, tela e código), e a tela funciona.
 import { gerarPreview, abrir, conferir, fechar } from "./util.mjs";

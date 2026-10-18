@@ -8,8 +8,7 @@
 // os dois fecham ao centavo.
 //
 // Conferido por mês, e de novo com um resgate vinculado a um investimento (que sai de Entrou e vira
-// "Resgates", e no Fluxo vira a linha Resgates do bloco Investimentos) e com um aporte (que sai de Saiu e de Saídas, e vira o
-// card "Aportes" de Registros e a linha Aportes do bloco Investimentos).
+// "Resgates", e no Fluxo vira a linha de devolução de caixa).
 import { gerarPreview, abrir, conferir, fechar, cards, card, numero, perto, brl } from "./util.mjs";
 
 const caminho = gerarPreview();
@@ -29,8 +28,8 @@ async function lerFluxo(m) {
   await esperar(600);
   const c = await cards(pagina, "fluxo-resumo");
   const tabela = await pagina.$eval("#fluxo-tabela", (e) => e.innerText);
-  const devolucao = (tabela.match(/devolução de caixa[^\n]*\n?[^\n]*?\t[^\n]*/) || [""])[0];
-  return { entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")), temDevolucao: /Investimentos[\s\S]*Resgates/.test(tabela), temAportes: /Investimentos[\s\S]*Aportes/.test(tabela), devolucao };
+  const devolucao = (tabela.match(/Resgates de investimento[^\n]*\n?[^\n]*?\t[^\n]*/) || [""])[0];
+  return { entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")), temDevolucao: /Resgates de investimento/.test(tabela), devolucao };
 }
 async function lerRegistros(m) {
   await ir("recorrentes");
@@ -43,7 +42,6 @@ async function lerRegistros(m) {
   return {
     entrou: numero("entrou", card(c, "Entrou")), saiu: numero("saiu", card(c, "Saiu")),
     resgates: card(c, "Resgates") ? numero("resgates", card(c, "Resgates")) : 0,
-    aportes: card(c, "Aportes") ? numero("aportes", card(c, "Aportes")) : 0,
     faturaFora: meta ? numero("faturaFora", meta) : 0,
   };
 }
@@ -75,24 +73,8 @@ await esperar(700);
   const f = await lerFluxo("2026-07"), r = await lerRegistros("2026-07");
   conferir("Julho com resgate vinculado: Entrou = Entradas (os dois sem o resgate)", perto(f.entradas, r.entrou) && perto(antes["2026-07"].f.entradas - f.entradas, resgate.v), `${brl(r.entrou)} × ${brl(f.entradas)} · resgate ${brl(resgate.v)}`);
   conferir("Julho com resgate vinculado: o card Resgates (Registros) = o resgate", perto(r.resgates, resgate.v), brl(r.resgates));
-  conferir("Julho com resgate vinculado: o Fluxo mostra o bloco Investimentos com a linha Resgates", f.temDevolucao);
+  conferir("Julho com resgate vinculado: o Fluxo mostra a linha de devolução de caixa", f.temDevolucao);
   conferir("Julho com resgate vinculado: Saiu e Saídas não mudam", perto(f.saidas, antes["2026-07"].f.saidas) && perto(r.saiu, antes["2026-07"].r.saiu));
-}
-
-// Com um aporte vinculado ao mesmo investimento: sai de Saiu (Registros) e de Saídas (Fluxo), e os dois continuam iguais
-const aporte = await pagina.evaluate(() => {
-  const D = JSON.parse(document.getElementById("dados").textContent);
-  const conta = Object.fromEntries(D.contas.map((c) => [c.i, c]));
-  const l = D.registros.filter((x) => conta[x.c] && !conta[x.c].cartao && x.x !== 1 && x.st !== 1 && !x.tt && window.DATAS.diaSP(x.d).slice(0, 7) === "2026-07" && x.v < 0).sort((a, b) => a.v - b.v)[0];
-  return { chave: window.MEMORIA.chaveLancamento(l), v: Math.abs(l.v) };
-});
-await pagina.evaluate(async (chave) => { const db = await window.claude.use("db"); await db.doc("vinculos_invest/" + chave).set({ chave, ativoId: "11" }); }, aporte.chave);
-await esperar(700);
-{
-  const f = await lerFluxo("2026-07"), r = await lerRegistros("2026-07");
-  conferir("Julho com aporte vinculado: Saiu (Registros) − fatura fora do app = Saídas (Fluxo)", perto(f.saidas, r.saiu - r.faturaFora), `${brl(r.saiu)} − ${brl(r.faturaFora)} × ${brl(f.saidas)}`);
-  conferir("Julho com aporte vinculado: as Saídas caem o valor do aporte", perto(antes["2026-07"].f.saidas - f.saidas, aporte.v), `${brl(antes["2026-07"].f.saidas)} → ${brl(f.saidas)} · aporte ${brl(aporte.v)}`);
-  conferir("Julho com aporte vinculado: o card Aportes (Registros) tem o aporte e o Fluxo mostra a linha Aportes", r.aportes >= aporte.v - 0.02 && f.temAportes, brl(r.aportes));
 }
 
 conferir("Nenhum erro de JavaScript na página", erros.length === 0, erros.join(" | "));

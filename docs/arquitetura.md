@@ -30,7 +30,7 @@ Bancos (Pluggy)
                 (só consulta)
 
 Endividamento (parcelas) ──────────────────────────────► Fluxo de caixa
-Projetos (previsão, só quando marcado) ─────────────────► Fluxo de caixa / DRE
+Projetos (previsão do que falta + vínculos) ───────────► Fluxo de caixa / DRE
 ```
 
 1. **Registros é a base.** Tudo o que o Fluxo, o DRE e o Dash mostram vem dele.
@@ -83,6 +83,7 @@ Como o dado vem das contas bancárias, ele é **lançado e validado na hora**. E
 | R11 | **Mês com pagamento é mês fechado.** Registro recorrente que recebeu (ou pagou) algo no mês não projeta o "resto" no Fluxo; o que faltou para o previsto é diferença a analisar (DRE), não dinheiro a chegar. | Previsto R$ 9.000 e entrou R$ 7.500 não pode virar 7.500 + 1.500 de caixa que não existe. |
 | R12 | **Um lançamento conta num mês só, e o mesmo em todas as telas.** O dia que conta (`CATEGORIAS.diaDaCompetencia`) vale para Fluxo, DRE e Dash; categoria com ciclo que vira o mês (26→05) leva o salário para o mês da competência, e o saldo anterior desconta o que o banco já tem. | Um salário que cai de 25 a 30 do mês anterior: ou conta no mês seguinte em todas as telas, ou aparece em dobro/ausente. |
 | R13 | **Transferência para conta da casa que está no app nunca vira gasto por falta da outra perna.** PIX para alguém da casa, num banco em que essa pessoa tem conta conectada que ainda não sincronizou depois do PIX, é transferência **em trânsito** (`ag`): fora de Entrou/Saiu, sem categoria, sem registro. Transferência para alguém da casa nunca dá baixa sozinha em registro, e a memória ensinada pelo nome de alguém da casa só vale no sentido em que foi ensinada. Conexão sem dado novo há mais de 36 h é avisada (rodapé do menu e Configuração), e o app lê o banco assim que o Meu Pluggy o atualiza (webhook). | Sem isso, um PIX de uma pessoa para a outra, com a conexão da segunda parada, vira "gasto" pela memória do nome dela. |
+| R14 | **Projeto vinculado conta uma vez.** O lançamento do extrato que a pessoa vincula a um projeto sai da linha da categoria e vai para a linha do projeto (mesmo dia, mesma coluna), e o item do projeto só prevê o que FALTA pagar (`restante` = planejado − saídas vinculadas, nunca negativo). Casar por "valor igual" não existe: só o vínculo cobre o item. Vale no Fluxo (com "Incluir projetos") e no DRE (só o restante); a conta mora em `validacao/projetos-calculo.js`. | 16/10/2026: viagem de janeiro com sinal do hotel já pago: sem o vínculo o 1.000 contava no extrato e de novo na previsão do item. |
 
 Sobre a R9: a atribuição do pagamento ao cartão, por exemplo, usa o NOME que o
 banco deu ao cartão (inteiro ou em pedaços, e as palavras que só aquele cartão

@@ -10,6 +10,7 @@
 // As regras moram aqui e não na tela: a tela é código do navegador, e o que o banco aceita não pode depender de
 // ela se comportar.
 import { todas, uma, consultar, transacao } from "./db.mjs";
+import { lancamentoNoProjeto } from "./projetos.mjs";
 
 const falhar = (mensagem, status = 400) => { throw Object.assign(new Error(mensagem), { status }); };
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
@@ -206,6 +207,8 @@ export async function gravarVinculosBens(id, doc) {
     const noEmprestimo = (await db.query("SELECT to_regclass('public.divida_vinculos_lanc') AS t")).rows[0].t
       && (await db.query(`SELECT d.nome FROM divida_vinculos_lanc v JOIN dividas d ON d.id = v.divida_id WHERE v.lancamento_id = ANY($1::bigint[]) LIMIT 1`, [ids])).rows[0];
     if (noEmprestimo) falhar(`Esse lançamento já é o crédito do empréstimo "${noEmprestimo.nome}". Tire de lá primeiro.`, 409);
+    const noProjeto = await lancamentoNoProjeto(db, ids);
+    if (noProjeto) falhar(noProjeto, 409);
     for (const l of lancs) {
       await db.query(
         `INSERT INTO bens_vinculos_lanc (lancamento_id, bem_id, custo) VALUES ($1, $2, $3)

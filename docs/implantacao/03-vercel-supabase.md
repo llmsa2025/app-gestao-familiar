@@ -110,7 +110,7 @@ npm install
 node servidor/migrar.mjs
 ```
 
-Aplica todas as migrations (`servidor/migrations/`, hoje 27) em ordem (cada uma numa transação). Pode rodar de novo à vontade:
+Aplica todas as migrations (`servidor/migrations/`, hoje 28) em ordem (cada uma numa transação). Pode rodar de novo à vontade:
 `Nada a aplicar: o banco já está em dia.` `node servidor/migrar.mjs --estado` mostra o que já
 rodou.
 

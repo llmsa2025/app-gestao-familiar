@@ -100,7 +100,7 @@ async function doisLancamentos(pagina) {
       `${antes.fim} → ${depois.fim}`,
     );
 
-    const l = await linha(pagina, "#fluxo-tabela", "Reembolso — dinheiro de passagem");
+    const l = await linha(pagina, "#fluxo-tabela", "sai e volta");
     conferir("Aparece a linha de reembolso, fora de entradas e saídas", !!l, (l || [])[0]);
     conferir("As duas categorias somem das linhas de categoria", !(await linha(pagina, "#fluxo-tabela", RECEBIDO)) && !(await linha(pagina, "#fluxo-tabela", PAGO)));
   }
