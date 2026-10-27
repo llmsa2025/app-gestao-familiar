@@ -18,6 +18,7 @@ Pluggy.
 
 | Tela | Para quê |
 |---|---|
+| **Chat IA** | Pergunte ao Claude ou ao ChatGPT sobre os dados da casa, gastando o limite do **seu plano** (sem API paga). *Opcional:* precisa de uma ponte rodando num VPS (guia [07](docs/implantacao/07-opcionais-pontos-e-chat-ia.md)). |
 | **Dash** | Resumo visual do período: entradas, saídas, dívidas e saldo. |
 | **Saúde financeira** | Indicadores de endividamento, reserva de emergência, "abastança" (quantos meses você viveria do que tem investido), crescimento do patrimônio, com o ano anterior ao lado. |
 | **Fluxo de caixa** | O que entrou, o que saiu e a **previsão** dos próximos meses (recorrências, parcelas, projetos). O saldo fecha com o do banco. |
@@ -28,6 +29,7 @@ Pluggy.
 | **Investimentos** | Por pessoa, com aportes, resgates e resultado; moeda estrangeira; consórcio (cota, parcela, "foi contemplado"). |
 | **Bens** | Imóveis, terrenos, veículos: valor atual com histórico, dívida ligada e custo de manter. |
 | **Projetos** | Viagem, reforma, obra: itens planejados, e os lançamentos do extrato que você vincula mostram se o gasto passou do previsto. O Fluxo não conta em dobro o que já está vinculado. |
+| **Pontos** | Saldo de pontos e milhas (Livelo, Azul, Sicredi, LATAM Pass, Gol), lido pela extensão do Chrome. *Opcional:* guia [07](docs/implantacao/07-opcionais-pontos-e-chat-ia.md). |
 | **Comissões** | Controle opcional, à parte. |
 | **Contas e bancos · Extrato · Qualidade dos dados** | Conferência: saldos, extrato linha a linha, repetidos, buracos e conexões paradas. |
 | *DRE* | O resultado por categoria (caixa ou competência) continua no código, mas fica **fora do menu**; `GF_VISTAS_VOLTAR=dre` o liga de volta. |
@@ -79,7 +81,7 @@ npm test                            # ~25 min: navegador de verdade + Postgres t
 
 Os testes rodam sobre **dados fictícios** (`validacao/testes/dados-ficticios.mjs`) — nada de
 extrato real. Leia [`docs/arquitetura.md`](docs/arquitetura.md) antes de mexer em números: ele
-define o caminho do dado e as regras R1–R13 que não podem ter furo.
+define o caminho do dado e as regras R1–R14 que não podem ter furo.
 
 ```
 api/                  entrada da Vercel (uma função atende todas as rotas)
@@ -90,6 +92,9 @@ servidor/             API, login, coletor da Pluggy, migrations, Docker, scripts
   testes/             teste de contrato com Postgres de verdade
 validacao/            as telas (tela.mjs embute os tela-*.js), o script de validação da
                       Pluggy e os testes das telas (validacao/testes/)
+chat-ponte/           (opcional) a ponte do Chat IA, que roda num VPS
+extensao-pontos/      (opcional) a extensão do Chrome que lê os saldos de pontos
+leitor-pontos/        (experimento) leitor de pontos por navegador no servidor
 docs/                 arquitetura, guias de implantação, pesquisa
 .claude/              skills e agente para o Claude Code
 CLAUDE.md             instruções para o Claude Code neste repositório

@@ -9,7 +9,7 @@
   "functions": {
     "api/index.mjs": {
       "maxDuration": 300,
-      "includeFiles": "{servidor/src/web/**,validacao/*.js,validacao/*.mjs,validacao/*.json}",
+      "includeFiles": "{servidor/src/web/**,validacao/*.js,validacao/*.mjs,validacao/*.json,extensao-pontos/*.js,extensao-pontos/manifest.json,extensao-pontos/LEIA-ME.txt,extensao-pontos/icones/*.png,extensao-pontos/loja/capturas/*.jpg,extensao-pontos/loja/LISTAGEM.md}",
       "excludeFiles": "{validacao/saida/**,validacao/.env,servidor/.env,servidor/backup/**}"
     }
   },

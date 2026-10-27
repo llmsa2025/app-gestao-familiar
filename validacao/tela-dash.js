@@ -56,11 +56,37 @@
     '</dt><dd class="' + (classe || "") + '">' + valor + "</dd>" +
     (detalhe ? '<span class="meta">' + esc(detalhe) + "</span>" : "") + "</div>";
 
+  // Para onde vai cada saída (window.DESTINO, destino-calculo.js). O grupo vem do cadastro de categorias; fatura do cartão e
+  // transferência não estão nele e valem pelo próprio nome. Guardado por categoria e limpo a cada desenho, como a memória
+  // dos meses: o cadastro pode mudar entre um desenho e outro.
+  const memoGrupoDaCategoria = new Map();
+  function grupoDaCategoria(categoria) {
+    if (!memoGrupoDaCategoria.has(categoria)) {
+      const caminho = window.CATEGORIAS.caminhoDe(categoria);
+      memoGrupoDaCategoria.set(categoria, { grupo: caminho ? caminho.grupo.grupo : categoria, investimento: window.CATEGORIAS.naturezaDe(categoria) === "investimento" });
+    }
+    return memoGrupoDaCategoria.get(categoria);
+  }
+  function destinar(mapa, categoria, valor) {
+    const g = grupoDaCategoria(categoria);
+    const destino = window.DESTINO.destinoDaSaida({ categoria, grupo: g.grupo, semCategoria: window.CLASSIFICACAO.SEM_CATEGORIA });
+    window.DESTINO.acumular(mapa, destino, g.grupo, categoria, valor);
+  }
+  // Aporte e resgate por INVESTIMENTO (o líquido vale em cada um, não no bolo geral): o vínculo do lançamento diz qual é; sem
+  // vínculo, vão todos juntos para o id "". `nomes` é o id do investimento → nome, do que a tela Investimentos publicou.
+  function movimentoDoInvestimento(mapa, nomes, l, campo, valor) {
+    const id = String(((estado.investimentos || {}).vinculos || {})[window.MEMORIA.chaveLancamento(l)] ?? "");
+    if (!mapa.has(id)) mapa.set(id, { nome: id ? nomes.get(id) || "Investimento" : "Sem investimento vinculado", aportes: 0, resgates: 0 });
+    mapa.get(id)[campo] += valor;
+  }
+
   function doPeriodo(inicio, fim, pessoa = estado.pessoa) {
-    let entradas = 0, saidas = 0, semCategoria = 0, nSemCategoria = 0, aportes = 0, resgates = 0;
+    let entradas = 0, saidas = 0, semCategoria = 0, nSemCategoria = 0, aportes = 0, resgates = 0, entradasSem = 0;
+    const destinos = new Map(), porInvestimento = new Map();
+    const nomesDosInvestimentos = new Map(((estado.investimentos || {}).ativos || []).map((a) => [String(a.id), a.nome]));
     for (const l of DADOS.registros) {
       const conta = contaPorIndice[l.c];
-      if (!conta || conta.cartao || l.tt === "transferencia" || l.x === 1) continue;
+      if (!conta || conta.cartao || l.tt === "transferencia" || l.x === 1 || l.st === 1) continue; // st 1: agendado, ainda não saiu
       if (!daPessoa(conta, pessoa)) continue;
       // O mês em que o lançamento conta é o do Fluxo e o do DRE (R5): o salário que cai de 25 a 30 e é do mês
       // seguinte entra no seguinte. Só olha a categoria de quem pode mudar de mês — é o caminho barato.
@@ -74,9 +100,9 @@
       if ((inicio && dia < inicio) || (fim && dia > fim)) continue;
       const patrimonio = window.CLASSIFICACAO.movimentoDePatrimonio(l, estado, categoria);
       if (patrimonio === "credito") continue;
-      if (patrimonio === "resgate") { resgates += l.v; continue; }
-      if (patrimonio === "aporte") { aportes += -l.v; continue; }
-      if (l.v > 0) entradas += l.v; else saidas += -l.v;
+      if (patrimonio === "resgate") { resgates += l.v; movimentoDoInvestimento(porInvestimento, nomesDosInvestimentos, l, "resgates", l.v); continue; }
+      if (patrimonio === "aporte") { aportes += -l.v; movimentoDoInvestimento(porInvestimento, nomesDosInvestimentos, l, "aportes", -l.v); continue; }
+      if (l.v > 0) { entradas += l.v; if (categoria === window.CLASSIFICACAO.SEM_CATEGORIA) entradasSem += l.v; } else { saidas += -l.v; destinar(destinos, categoria, -l.v); }
       // "Sem categoria" pela MESMA cadeia do Fluxo e do DRE (R5): categoria escolhida na
       // linha → registro vinculado → memória do estabelecimento → de-para. Esta conta
       // olhava só a escolha na linha (e um campo, `classificadoPorRegistro`, que nunca foi
@@ -84,7 +110,8 @@
       // principal do app, continuava contando aqui — R$ 58 mil contra R$ 16 mil do Fluxo.
       if (categoria === window.CLASSIFICACAO.SEM_CATEGORIA) { semCategoria += Math.abs(l.v); nSemCategoria++; }
     }
-    return { entradas, saidas, resultado: entradas - saidas, semCategoria, nSemCategoria, aportes, resgates };
+    return { entradas, saidas, resultado: entradas - saidas, semCategoria, nSemCategoria, aportes, resgates, destinos: window.DESTINO.listar(destinos), entradasSemCategoria: entradasSem,
+      investimentos: [...porInvestimento].map(([id, x]) => ({ id, nome: x.nome, aportes: x.aportes, resgates: x.resgates })) };
   }
 
   // Cada mês é calculado uma vez por desenho: a evolução, a média e a Saúde financeira pedem os mesmos meses, e o
@@ -372,7 +399,8 @@
     };
   }
   // A tela de Saúde financeira e o Balanço leem daqui (o Dash já assina todos os avisos de que o cálculo depende).
-  window.DASH = { entradaDaSaude, entradaDoBalanco };
+  // `doMes` também é lido pelo Chat IA (o dossiê leva os totais mensais do Dash, calculados por esta mesma função: R5)
+  window.DASH = { entradaDaSaude, entradaDoBalanco, doMes };
 
   function desenharEvolucao() {
     const alvo = $("evo-grafico");
@@ -450,6 +478,169 @@
       : "Sem movimento no período.";
   }
 
+  // ---------------------------------------------------------------------------
+  // Para onde foi a receita
+  // ---------------------------------------------------------------------------
+  // De tudo o que entrou no período: dívidas, investimentos, consumo e o que sobrou, em R$ e em % da receita. Nenhuma conta
+  // é feita aqui (R5): os meses vêm de `doMes` — os mesmos números dos cartões de Caixa — e a divisão está em window.DESTINO
+  // (destino-calculo.js). Mensal = um mês; Anual = os meses do ano até hoje. O gráfico mês a mês mostra, para os 12 meses em
+  // volta, quanto de cada coisa saiu e onde estava a receita (o traço): barra acima do traço = saiu mais do que entrou.
+  const MESES_LONGOS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  const mesPorExtenso = (chave) => MESES_LONGOS[Number(chave.slice(5, 7)) - 1] + " de " + chave.slice(0, 4);
+  const CLASSE_DO_DESTINO = { dividas: "dividas", investimentos: "invest", consumo: "consumo", semCategoria: "sem" };
+  const destinoEstado = { visao: "mes", periodo: mesAtual, abertos: new Set() };
+  const pctTxt = (p) => window.DESTINO.formatarPct(p);
+
+  // Os períodos que dá para escolher: do mês corrente até o primeiro mês que o extrato cobre.
+  function montarPeriodosDoDestino() {
+    const primeiroMes = primeiroDia().slice(0, 7);
+    const opcoes = [];
+    if (destinoEstado.visao === "mes") {
+      for (let i = 0; i < 36; i++) {
+        const m = window.PERIODO.somaMesesChave(mesAtual, -i);
+        if (m < primeiroMes) break;
+        opcoes.push([m, mesPorExtenso(m) + (m === mesAtual ? " (até hoje)" : "")]);
+      }
+    } else {
+      const atual = Number(mesAtual.slice(0, 4));
+      for (let a = atual; a >= Number(primeiroMes.slice(0, 4)); a--) opcoes.push([String(a), a === atual ? a + " (até hoje)" : String(a)]);
+    }
+    if (!opcoes.length) opcoes.push(destinoEstado.visao === "mes" ? [mesAtual, mesPorExtenso(mesAtual)] : [mesAtual.slice(0, 4), mesAtual.slice(0, 4)]);
+    if (!opcoes.some(([v]) => v === destinoEstado.periodo)) destinoEstado.periodo = opcoes[0][0];
+    $("dest-periodo").innerHTML = opcoes.map(([v, r]) => '<option value="' + v + '"' + (v === destinoEstado.periodo ? " selected" : "") + ">" + esc(r) + "</option>").join("");
+    for (const b of $("dest-visao").querySelectorAll("button[data-visao]")) b.setAttribute("aria-pressed", String(b.dataset.visao === destinoEstado.visao));
+  }
+
+  // Os meses que entram na conta: o mês escolhido, ou os do ano (até o corrente e só os que o extrato cobre).
+  function chavesDoDestino() {
+    if (destinoEstado.visao === "mes") return [destinoEstado.periodo];
+    const primeiroMes = primeiroDia().slice(0, 7);
+    return Array.from({ length: 12 }, (_, i) => destinoEstado.periodo + "-" + String(i + 1).padStart(2, "0")).filter((m) => m <= mesAtual && m >= primeiroMes);
+  }
+  // Os do gráfico: o ano inteiro no anual; no mensal, os 12 meses que terminam no escolhido.
+  function chavesDoGraficoDestino() {
+    if (destinoEstado.visao === "ano") return chavesDoDestino();
+    const primeiroMes = primeiroDia().slice(0, 7);
+    const lista = [];
+    for (let i = 11; i >= 0; i--) {
+      const m = window.PERIODO.somaMesesChave(destinoEstado.periodo, -i);
+      if (m >= primeiroMes && m <= mesAtual) lista.push(m);
+    }
+    return lista;
+  }
+
+  function linhaDoDestino(p) {
+    const classe = CLASSE_DO_DESTINO[p.id];
+    // Fatura do cartão e transferência são grupo e categoria ao mesmo tempo: não repete o nome numa linha abaixo.
+    const categorias = (g) => (g.categorias.length === 1 && g.categorias[0].categoria === g.grupo ? "" :
+      '<ul class="dest-cats">' + g.categorias.map((c) => "<li><span>" + esc(c.categoria) + '</span><span class="dest-valor">' + brl.format(c.valor) + '</span><span class="dest-pct-s">' + pctTxt(c.pct) + "</span></li>").join("") + "</ul>");
+    // Investimentos é o líquido DE CADA investimento: o detalhe abre um por um (aplicou, resgatou, o que sobrou) e fecha com o
+    // total que ficou investido e o que foi retirado. Só em um investimento onde aplicou mais do que resgatou o valor entra na fatia.
+    const d = p.detalhe;
+    const linha = (rotulo, valor, extra, miudo) => '<div class="dest-gl' + (extra ? " " + extra : "") + '"><span>' + esc(rotulo) + (miudo ? '<small class="dest-miudo">' + esc(miudo) + "</small>" : "") + '</span><span class="dest-valor' + (extra === "dest-retirado" ? " neg" : "") + '">' + valor + '</span><span class="dest-pct-s"></span></div>';
+    const grupos = d
+      ? '<ul class="dest-grupos">' + d.porInvestimento.map((x) =>
+        "<li>" + linha(x.nome + (x.id === "" ? " (vincule na tela Investimentos)" : ""), (x.liquido < 0 ? "−" : x.liquido > 0 ? "+" : "") + brl.format(Math.abs(x.liquido)), "", "aplicou " + brl.format(x.aportes) + " · resgatou " + brl.format(x.resgates) + (x.liquido > 0 ? " · ficou investido" : x.liquido < 0 ? " · foi retirado" : "")) + "</li>").join("") +
+        "<li>" + linha("Ficou investido (onde aplicou mais do que resgatou)", brl.format(d.investido), "dest-liquido") + "</li>" +
+        (d.retirada > 0.005 ? "<li>" + linha("Retirado (onde resgatou mais do que aplicou)", "−" + brl.format(d.retirada), "dest-retirado") + "</li>" : "") + "</ul>"
+      : p.grupos.length
+      ? '<ul class="dest-grupos">' + p.grupos.map((g) =>
+        '<li><div class="dest-gl"><span>' + esc(g.grupo) + '</span><span class="dest-valor">' + brl.format(g.valor) + '</span><span class="dest-pct-s">' + pctTxt(g.pct) + "</span></div>" + categorias(g) + "</li>").join("") + "</ul>"
+      : "";
+    return '<details class="dest-item" data-id="' + p.id + '"' + (destinoEstado.abertos.has(p.id) ? " open" : "") + "><summary>" +
+      '<i class="leg-cor dest-c-' + classe + '"></i><span class="dest-nome">' + esc(p.rotulo) + '</span><span class="dest-valor">' + brl.format(p.valor) + '</span><strong class="dest-pct">' + pctTxt(p.pct) + "</strong>" +
+      '<span class="dest-trilho" aria-hidden="true"><i class="dest-c-' + classe + '" style="width:' + Math.min(100, Math.max(0, p.pct || 0)).toFixed(1) + '%"></i></span></summary>' +
+      '<div class="dest-detalhe"><p class="suave pequeno dest-explica">' + esc(p.explicacao) + "</p>" + grupos + "</div></details>";
+  }
+
+  function desenharDestino() {
+    const corpo = $("dest-corpo");
+    if (!corpo) return;
+    // O que a pessoa abriu ou fechou vale para o próximo desenho: lido da tela agora, antes de ela ser refeita. (Esperar o evento
+    // `toggle` do <details> não serve: ele chega depois do clique, e um desenho nesse intervalo reabriria o que acabou de fechar.)
+    for (const d of corpo.querySelectorAll("details[data-id]")) { if (d.open) destinoEstado.abertos.add(d.dataset.id); else destinoEstado.abertos.delete(d.dataset.id); }
+    const chaves = chavesDoDestino();
+    const r = window.DESTINO.montar(chaves.map((m) => doMes(m)));
+    const inicioDoPeriodo = destinoEstado.visao === "mes" ? destinoEstado.periodo + "-01" : destinoEstado.periodo + "-01-01";
+    const emAndamento = chaves.includes(mesAtual);
+    $("dest-texto").textContent =
+      (destinoEstado.visao === "mes" ? mesPorExtenso(destinoEstado.periodo) : "ano de " + destinoEstado.periodo) + (emAndamento ? " (até hoje)" : "") +
+      (estado.pessoa ? " · " + window.PESSOAS.rotulo(estado.pessoa) : " · todas as pessoas");
+
+    if (!r.receita && !r.gasto) {
+      corpo.innerHTML = '<p class="suave pequeno">Sem movimento neste período.</p>';
+      desenharDestinoMeses();
+      return;
+    }
+
+    // A barra mostra a receita inteira (100%). Se saiu mais do que entrou, a barra é o que saiu e um traço marca onde a receita acabava.
+    const base = Math.max(r.receita, r.gasto) || 1;
+    const segmentos = r.partes.filter((p) => p.valor > 0).map((p) =>
+      '<i class="dest-c-' + CLASSE_DO_DESTINO[p.id] + '" style="flex:' + (p.valor / base).toFixed(5) + ' 1 0" title="' + esc(p.rotulo + " · " + brl.format(p.valor) + " · " + pctTxt(p.pct) + " da receita") + '"></i>');
+    if (!r.saiuMais && r.sobra > 0.005) segmentos.push('<i class="dest-c-sobra" style="flex:' + (r.sobra / base).toFixed(5) + ' 1 0" title="' + esc("Sobrou · " + brl.format(r.sobra) + " · " + pctTxt(r.sobraPct) + " da receita") + '"></i>');
+    const marca = r.saiuMais && r.receita > 0 ? '<span class="dest-marca" style="left:' + (r.receita / base * 100).toFixed(2) + '%" title="' + esc("Receita " + brl.format(r.receita)) + '"></span>' : "";
+    const resumoAria = "Da receita de " + brl.format(r.receita) + ": " + r.partes.map((p) => p.rotulo + " " + pctTxt(p.pct)).join(", ") + ", " + (r.saiuMais ? "saiu a mais " + brl.format(-r.sobra) : "sobrou " + pctTxt(r.sobraPct));
+
+    const sobra = '<div class="dest-item dest-linha-sobra"><div class="dest-linha"><i class="leg-cor dest-c-sobra"></i><span class="dest-nome">' + (r.saiuMais ? "Saiu a mais do que entrou" : "Sobrou") + "</span>" +
+      '<span class="dest-valor ' + (r.saiuMais ? "neg" : "pos") + '">' + (r.saiuMais ? "−" : "") + brl.format(Math.abs(r.sobra)) + '</span><strong class="dest-pct">' + (r.saiuMais && r.sobraPct !== null ? "−" + pctTxt(-r.sobraPct) : pctTxt(r.sobraPct)) + "</strong></div></div>";
+
+    const avisos = [];
+    if (inicioDoPeriodo < primeiroDia()) avisos.push("O extrato começa em " + dataBR(primeiroDia()) + ": o que veio antes dessa data não está na conta.");
+    if (!r.receita) avisos.push("Não entrou receita neste período, por isso não há porcentagem.");
+
+    corpo.innerHTML =
+      '<p class="dest-resumo"><span class="suave">Receita (o que entrou)</span><strong class="dest-valor">' + brl.format(r.receita) + "</strong></p>" +
+      '<div class="dest-barra" role="img" aria-label="' + esc(resumoAria) + '">' + segmentos.join("") + marca + "</div>" +
+      (r.retirada > 0.005 ? '<p class="dest-nota">Dos investimentos voltaram ' + brl.format(r.retirada) + ' a mais do que foi aplicado neles (resgates − aportes, investimento por investimento): esse dinheiro entrou na conta, ajudou a pagar as saídas e não é receita.</p>' : "") +
+      (r.entradasSemCategoria > 0.005 ? '<p class="dest-nota">A receita inclui ' + brl.format(r.entradasSemCategoria) + ' de entradas ainda sem categoria. Se alguma for resgate de investimento, empréstimo ou transferência entre contas suas, categorize em Registros: ela sai da receita e a conta muda.</p>' : "") +
+      (r.saiuMais ? '<p class="dest-nota">O traço mostra onde a receita acabava: o que passou dele foi pago com ' + (r.retirada > 0.005 ? "o que voltou dos investimentos e " : "") + "o saldo que já existia.</p>" : "") +
+      avisos.map((a) => '<p class="suave pequeno dest-nota">' + esc(a) + "</p>").join("") +
+      '<div class="dest-lista">' + r.partes.map(linhaDoDestino).join("") + sobra + "</div>";
+    desenharDestinoMeses();
+  }
+
+  // Uma coluna por mês: empilha o que saiu para cada destino (mesmas cores da barra) e o traço marca a receita do mês. Clicar
+  // numa coluna abre aquele mês.
+  function desenharDestinoMeses() {
+    const alvo = $("dest-meses");
+    if (!alvo) return;
+    const chaves = chavesDoGraficoDestino();
+    const dados = window.DESTINO.serie(chaves.map((m) => ({ mes: m, ...doMes(m) })));
+    if (!dados.length) { alvo.innerHTML = ""; return; }
+    const ALTURA = 210, TOPO = 16, BASE = 24, EIXO = 34, MINIMO_MES = 56;
+    const LARGURA_MES = Math.max(MINIMO_MES, Math.floor(((alvo.clientWidth || 0) - EIXO - 8) / dados.length));
+    const largura = EIXO + dados.length * LARGURA_MES + 8;
+    const total = (d) => d.dividas + d.investimentos + d.consumo + d.semCategoria;
+    const teto = Math.max(1, ...dados.map((d) => Math.max(d.receita, total(d))));
+    const y = (v) => TOPO + (ALTURA - TOPO - BASE) * (1 - v / teto);
+    const partes = [];
+    for (const valor of [teto, teto / 2, 0]) {
+      partes.push('<line class="grade-grafico' + (valor === 0 ? " grade-zero" : "") + '" x1="' + EIXO + '" y1="' + y(valor).toFixed(1) + '" x2="' + (largura - 4) + '" y2="' + y(valor).toFixed(1) + '"></line>');
+      partes.push('<text class="valor-grafico" x="' + (EIXO - 4) + '" y="' + (y(valor) + 3.5).toFixed(1) + '" text-anchor="end">' + esc(curto(valor)) + "</text>");
+    }
+    const ordem = ["dividas", "investimentos", "consumo", "semCategoria"];
+    dados.forEach((d, i) => {
+      const meio = EIXO + i * LARGURA_MES + LARGURA_MES / 2;
+      const larg = Math.round(Math.min(44, Math.max(18, LARGURA_MES * 0.5)));
+      let base = y(0);
+      for (const id of ordem) {
+        if (!d[id]) continue;
+        const alt = Math.max(2, y(0) - y(d[id]));
+        base -= alt;
+        partes.push('<rect class="dest-seg dest-c-' + CLASSE_DO_DESTINO[id] + '" x="' + (meio - larg / 2) + '" y="' + base.toFixed(1) + '" width="' + larg + '" height="' + alt.toFixed(1) + '" rx="2"></rect>');
+      }
+      if (d.receita) partes.push('<line class="dest-traco-receita" x1="' + (meio - larg / 2 - 4) + '" y1="' + y(d.receita).toFixed(1) + '" x2="' + (meio + larg / 2 + 4) + '" y2="' + y(d.receita).toFixed(1) + '"></line>');
+      const linhaDoTitulo = (rotulo, v) => "\n" + rotulo + " " + brl.format(v) + (d.receita ? " (" + pctTxt(v / d.receita * 100) + ")" : "");
+      const dica = rotuloMes(d.mes) + " · receita " + brl.format(d.receita) + linhaDoTitulo("Dívidas", d.dividas) + linhaDoTitulo("Investimentos", d.investimentos) + linhaDoTitulo("Consumo", d.consumo) +
+        (d.semCategoria ? linhaDoTitulo("Sem categoria", d.semCategoria) : "") + "\n" + (d.sobra < -0.005 ? "Saiu a mais " + brl.format(-d.sobra) : "Sobrou " + brl.format(d.sobra)) + "\n(clique para abrir o mês)";
+      partes.push('<rect class="dest-hit" data-mes="' + d.mes + '" x="' + (meio - LARGURA_MES / 2) + '" y="' + TOPO + '" width="' + LARGURA_MES + '" height="' + (ALTURA - TOPO) + '"><title>' + esc(dica) + "</title></rect>");
+      const escolhido = destinoEstado.visao === "mes" && d.mes === destinoEstado.periodo;
+      partes.push('<text class="rotulo-mes' + (escolhido || d.mes === mesAtual ? " mes-atual" : "") + '" x="' + meio + '" y="' + (ALTURA - 8) + '">' + esc(rotuloMes(d.mes)) + "</text>");
+    });
+    alvo.innerHTML = '<svg width="' + largura + '" height="' + ALTURA + '" viewBox="0 0 ' + largura + " " + ALTURA + '" role="img" aria-label="Para onde foi a receita em cada um dos ' + dados.length + ' meses">' + partes.join("") + "</svg>";
+    requestAnimationFrame(() => { alvo.scrollLeft = alvo.scrollWidth; });
+  }
+
   // Três cartões-resumo da Saúde financeira, com a cor do indicador (a mesma da tela completa). Não dependem do
   // período do Dash: valem para os últimos 12 meses fechados e para o filtro de pessoa.
   const ROTULO_DA_COR = { verde: "Saudável", amarelo: "Atenção", vermelho: "Crítico", neutro: "", "sem-dado": "Sem dado" };
@@ -481,6 +672,7 @@
 
   function desenhar() {
     memoMeses.clear();
+    memoGrupoDaCategoria.clear();
     const [inicio, fim] = intervalo();
     const mes = doPeriodo(inicio, fim);
     const m6 = media();
@@ -515,6 +707,7 @@
       cartao("Sem categoria no período", brl.format(mes.semCategoria), mes.nSemCategoria ? "alerta-texto" : "", mes.nSemCategoria + " lançamentos a classificar") +
       cartao("Registros cadastrados", String(estado.recorrentes.length), "", "viram previsão no fluxo");
 
+    desenharDestino();
     desenharProvisao();
     desenharEvolucao();
 
@@ -564,11 +757,30 @@
   // O gráfico não depende do filtro de período (ele É a linha do tempo), mas
   // depende da pessoa — por isso só o seletor de meses redesenha ele sozinho.
   $("evo-meses").addEventListener("change", desenharEvolucao);
+  // Para onde foi a receita: Mensal/Anual, o período escolhido, abrir/fechar o detalhe de cada destino e clicar num mês do gráfico.
+  $("dest-visao").addEventListener("click", (e) => {
+    const botao = e.target.closest("button[data-visao]");
+    if (!botao || botao.dataset.visao === destinoEstado.visao) return;
+    const era = destinoEstado.periodo;
+    destinoEstado.visao = botao.dataset.visao;
+    destinoEstado.periodo = botao.dataset.visao === "ano" ? era.slice(0, 4) : era === mesAtual.slice(0, 4) ? mesAtual : era + "-12";
+    montarPeriodosDoDestino();
+    desenharDestino();
+  });
+  $("dest-periodo").addEventListener("change", (e) => { destinoEstado.periodo = e.target.value; desenharDestino(); });
+  $("dest-meses").addEventListener("click", (e) => {
+    const coluna = e.target.closest("[data-mes]");
+    if (!coluna) return;
+    destinoEstado.visao = "mes";
+    destinoEstado.periodo = coluna.dataset.mes;
+    montarPeriodosDoDestino();
+    desenharDestino();
+  });
   // Mudar o tamanho da janela (ou girar o celular) redistribui os meses.
   let esperaRedesenho = null;
   window.addEventListener("resize", () => {
     clearTimeout(esperaRedesenho);
-    esperaRedesenho = setTimeout(desenharEvolucao, 150);
+    esperaRedesenho = setTimeout(() => { desenharEvolucao(); desenharDestinoMeses(); }, 150);
   });
   window.ouvirTelas("classificacoes", (detalhe) => { estado.classificacoes = detalhe || {}; desenharJunto(); });
   window.ouvirTelas("investimentos", (detalhe) => { estado.investimentos = detalhe || { vinculos: {} }; desenharJunto(); });
@@ -585,5 +797,6 @@
   window.CATEGORIAS.aoMudar(desenharJunto);
   document.addEventListener("vista", (e) => { if (e.detail === "resumo") desenhar(); });
 
+  montarPeriodosDoDestino();
   desenhar();
 })();

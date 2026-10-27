@@ -286,6 +286,52 @@ await esperar();
   conferir("\"Também PIX, TED e transferências\" mostra mais lançamentos que os que parecem investimento", comTransf > soInvest, `${soInvest} → ${comTransf}`);
   await pagina.click('#inv-modo button[data-inv-modo="parecem"]');
 
+  // Filtro "Pessoa": dentro da Marina ele já vem nela, e dá para trazer os lançamentos do Lucas ou de todos
+  await pagina.click('#inv-modo button[data-inv-modo="todos"]');
+  await esperar(500);
+  const filtro = () => pagina.$eval("#inv-extrato-pessoa", (s) => ({ valor: s.value, textos: [...s.options].map((o) => o.textContent.trim()) }));
+  const contasDaLista = () => pagina.evaluate(() => document.querySelector("#inv-sugestoes")._lista.map((i) => i.conta));
+  const f0 = await filtro();
+  conferir("O painel tem o filtro de pessoa (Todas, Lucas, Marina) e já vem na pessoa aberta", f0.valor === "2" && f0.textos.join("|") === "Todas as pessoas|Lucas Souza Almeida|Marina Vieira", JSON.stringify(f0));
+  const soMarina = await contasDaLista();
+  await pagina.selectOption("#inv-extrato-pessoa", "1");
+  await esperar(400);
+  const soLucas = await contasDaLista();
+  conferir("Filtrando o Lucas, dentro da Marina, vêm só as contas dele", soLucas.length >= 1 && soLucas.every((c) => !/Marina/.test(c)), `${soLucas.length} lançamentos`);
+  conferir("O resumo do painel acompanha o filtro (diz que são do Lucas)", /de Lucas Souza Almeida/.test(await meta()), (await meta()).slice(0, 80));
+  await pagina.selectOption("#inv-extrato-pessoa", "");
+  await esperar(400);
+  const todas = await contasDaLista();
+  conferir("\"Todas as pessoas\" traz os lançamentos do Lucas e da Marina juntos", todas.length >= soMarina.length + soLucas.length && todas.some((c) => /Marina/.test(c)) && todas.some((c) => !/Marina/.test(c)), `Marina ${soMarina.length} + Lucas ${soLucas.length} → todas ${todas.length}`);
+  const selTodas = await pagina.$eval('#inv-sugestoes select[data-inv-sug="0"]', (s) => ({ valor: s.value, grupos: [...s.querySelectorAll("optgroup")].map((g) => g.label), textos: [...s.options].map((o) => o.textContent) }));
+  conferir("Com todas as pessoas, o seletor oferece os investimentos de todas, agrupados por pessoa", [...selTodas.grupos].sort().join("|") === "Lucas Souza Almeida|Marina Vieira" && selTodas.textos.includes("Opções Teste") && selTodas.textos.includes("CDB Teste"), JSON.stringify(selTodas));
+  const destinoTodas = await pagina.$eval("#inv-lote-destino", (s) => [...s.options].map((o) => o.textContent));
+  conferir("E o investimento do lote também", destinoTodas.includes("Opções Teste") && destinoTodas.includes("CDB Teste"), destinoTodas.join(" | "));
+
+  // Um lançamento da Marina vinculado, vendo "todas", a um investimento do Lucas: o valor entra lá
+  const linhaMarina = await pagina.evaluate(() => { const L = document.querySelector("#inv-sugestoes")._lista; const n = L.findIndex((i) => /Marina/.test(i.conta)); return n < 0 ? null : { n, valor: Math.abs(L[n].valor) }; });
+  conferir("Há um lançamento da Marina na lista de todas", !!linhaMarina);
+  if (linhaMarina) {
+    await abrirPessoa("Lucas Souza Almeida");
+    await esperar(300);
+    conferir("Abrir outra pessoa volta o filtro para ela", (await filtro()).valor === "1" && /de Lucas Souza Almeida/.test(await meta()), JSON.stringify(await filtro()));
+    const antesLucas = await totalVinculado("12");
+    if (!(await pagina.isVisible("#inv-extrato-corpo"))) await pagina.click("#inv-extrato-alternar");
+    await pagina.click('#inv-modo button[data-inv-modo="todos"]');
+    await pagina.selectOption("#inv-extrato-pessoa", "");
+    await esperar(400);
+    const n = await pagina.evaluate(() => document.querySelector("#inv-sugestoes")._lista.findIndex((i) => /Marina/.test(i.conta)));
+    const valorMarina = await pagina.evaluate((k) => Math.abs(document.querySelector("#inv-sugestoes")._lista[k].valor), n);
+    await pagina.selectOption(`#inv-sugestoes select[data-inv-sug="${n}"]`, "12");
+    await pagina.click(`#inv-sugestoes button[data-inv-vincular="${n}"]`);
+    await esperar(700);
+    const depoisLucas = await totalVinculado("12");
+    conferir("Vincular, de dentro do Lucas, um lançamento da Marina a um investimento do Lucas leva o valor dele", perto(depoisLucas - antesLucas, valorMarina), `${brl(antesLucas)} → ${brl(depoisLucas)} · esperado +${brl(valorMarina)}`);
+    await pagina.click('#inv-modo button[data-inv-modo="parecem"]');
+    await abrirPessoa("Marina Vieira");
+    await esperar(300);
+  }
+
   // Limpeza do que este bloco criou
   for (const l of [x, y]) await apagar("classificacoes", "c-" + l.chave);
   await pagina.evaluate(async () => {

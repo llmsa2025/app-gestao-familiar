@@ -26,6 +26,7 @@ import {
   lerEmpresas, gravarEmpresa, apagarEmpresa, lerNegocios, gravarNegocio, apagarNegocio,
   lerRecebimentos, gravarRecebimento, apagarRecebimento,
 } from "../comissoes.mjs";
+import { lerProgramas, gravarPrograma, apagarPrograma, lerContas, gravarConta, apagarConta, lerSaldos, gravarSaldo, apagarSaldo } from "../pontos.mjs";
 
 // Cada coleção vira uma tabela, com a sua chave. `id` é o identificador que a
 // tela usa; `campos` são as colunas gravadas a partir do documento.
@@ -205,6 +206,12 @@ const COLECOES = {
   comissoes_empresas: { ler: lerEmpresas, gravar: gravarEmpresa, apagar: apagarEmpresa },
   comissoes_negocios: { ler: lerNegocios, gravar: gravarNegocio, apagar: apagarNegocio },
   comissoes_recebimentos: { ler: lerRecebimentos, gravar: gravarRecebimento, apagar: apagarRecebimento },
+  // Pontos (tela Pontos): o catálogo de programas (só leitura), as contas (um programa de uma pessoa) e o histórico de saldos.
+  // Gravar um saldo muda a conta (situação, última leitura e o saldo mais recente que ela mostra): o navegador recarrega as duas
+  // juntas (db-servidor.js). Não há campo de login nem de senha em nenhuma. Regras em ../pontos.mjs.
+  pontos_programas: { ler: lerProgramas, gravar: gravarPrograma, apagar: apagarPrograma },
+  pontos_contas: { ler: lerContas, gravar: gravarConta, apagar: apagarConta },
+  pontos_saldos: { ler: lerSaldos, gravar: gravarSaldo, apagar: apagarSaldo },
   projetos: { tabela: "projetos", numerica: true, comItens: true },
   // Qual lançamento do extrato pertence a qual projeto (e item), id = chave do lançamento. Regras em ../projetos.mjs.
   vinculos_projetos: { ler: lerVinculosProjetos, gravar: gravarVinculosProjetos, apagar: apagarVinculoProjeto },

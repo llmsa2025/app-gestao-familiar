@@ -12,7 +12,7 @@ que não conseguiu resolver. Roda no VPS do usuário (Docker) **ou** na Vercel c
 
 - Servidor Node (sem framework) em `servidor/`, Postgres, migrations em SQL.
 - Telas: uma página só, gerada por `validacao/tela.mjs`, que embute os `validacao/tela-*.js`.
-- Modelo e regras que não podem ter furo: **[`docs/arquitetura.md`](docs/arquitetura.md)** (R1–R13).
+- Modelo e regras que não podem ter furo: **[`docs/arquitetura.md`](docs/arquitetura.md)** (R1–R14).
   Leia antes de mexer em qualquer número.
 
 ## Se o usuário quer INSTALAR / IMPLANTAR / "montar" o app
@@ -50,6 +50,12 @@ Como conduzir:
 - A credencial da Pluggy **não** vai em arquivo: é cadastrada **dentro do app** (Configuração →
   Conexão Bancos) e fica cifrada no banco com a `CHAVE_MESTRA`.
 - **Nunca abra a porta do Postgres** do VPS para a internet; o `docker-compose.yml` já não publica.
+
+## Opcionais (só se o usuário pedir)
+
+A tela **Pontos** (extensão do Chrome) e o **Chat IA** (ponte num VPS, com o login do plano do Claude/ChatGPT) são opcionais e
+mexem com acessos de terceiros. Conduza por **[`docs/implantacao/07-opcionais-pontos-e-chat-ia.md`](docs/implantacao/07-opcionais-pontos-e-chat-ia.md)**,
+avisando antes o que sai do computador do usuário (leia a seção "O que sai da sua casa" do guia).
 
 ## Comandos
 

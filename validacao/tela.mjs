@@ -5,8 +5,8 @@
 // Não chama a Pluggy: usa o que o validar.mjs já salvou. Saída: saida/tela.html
 // (fora do git — contém extrato real). A página é publicada como Artifact privado.
 //
-// Telas (na ordem do menu): Dash · Saúde financeira · Fluxo de caixa · (DRE, escondido) · Balanço · Análises · Comissões · Registros · Endividamento ·
-//        Projetos · Investimentos · Bens (em construção) · Contas e bancos · Extrato das contas ·
+// Telas (na ordem do menu): Chat IA · Dash · Saúde financeira · Fluxo de caixa · (DRE, escondido) · Balanço · Análises · Comissões · Registros · Endividamento ·
+//        Projetos · Investimentos · Bens (em construção) · Pontos · Contas e bancos · Extrato das contas ·
 //        Qualidade dos dados · Configuração
 //
 // Uso: node validacao/tela.mjs
@@ -39,11 +39,14 @@ const codigoProjetos = readFileSync(join(AQUI, "tela-projetos.js"), "utf8");
 const codigoProjetosCalculo = readFileSync(join(AQUI, "projetos-calculo.js"), "utf8");
 const codigoInvestimentos = readFileSync(join(AQUI, "tela-investimentos.js"), "utf8");
 const codigoComissoes = readFileSync(join(AQUI, "tela-comissoes.js"), "utf8");
+const codigoPontos = readFileSync(join(AQUI, "tela-pontos.js"), "utf8");
+const codigoChat = readFileSync(join(AQUI, "tela-chat.js"), "utf8");
 const codigoConfig = readFileSync(join(AQUI, "tela-config.js"), "utf8");
 const codigoDividas = readFileSync(join(AQUI, "tela-dividas.js"), "utf8");
 const codigoDash = readFileSync(join(AQUI, "tela-dash.js"), "utf8");
 const codigoBens = readFileSync(join(AQUI, "tela-bens.js"), "utf8");
 const codigoSaudeCalculo = readFileSync(join(AQUI, "saude-calculo.js"), "utf8");
+const codigoDestinoCalculo = readFileSync(join(AQUI, "destino-calculo.js"), "utf8");
 const codigoSaude = readFileSync(join(AQUI, "tela-saude.js"), "utf8");
 const codigoConsorcioCalculo = readFileSync(join(AQUI, "consorcio-calculo.js"), "utf8");
 const codigoBalancoCalculo = readFileSync(join(AQUI, "balanco-calculo.js"), "utf8");
@@ -62,11 +65,14 @@ for (const [nome, codigo] of [
   ["consorcio-calculo.js", codigoConsorcioCalculo],
   ["tela-investimentos.js", codigoInvestimentos],
   ["tela-comissoes.js", codigoComissoes],
+  ["tela-pontos.js", codigoPontos],
+  ["tela-chat.js", codigoChat],
   ["tela-config.js", codigoConfig],
   ["tela-dividas.js", codigoDividas],
   ["tela-dash.js", codigoDash],
   ["tela-bens.js", codigoBens],
   ["saude-calculo.js", codigoSaudeCalculo],
+  ["destino-calculo.js", codigoDestinoCalculo],
   ["balanco-calculo.js", codigoBalancoCalculo],
   ["tela-balanco.js", codigoBalanco],
   ["analises-calculo.js", codigoAnalisesCalculo],
@@ -1077,6 +1083,8 @@ const dadosJson = JSON.stringify({
 // Um por tela, na ordem em que aparecem; o Dash, o Fluxo e o DRE repetem os da barra
 // do celular para a mesma tela ter o mesmo desenho nos dois lugares.
 const ICONES_MENU = {
+  // balão de conversa com três pontinhos: perguntar e ouvir
+  chat: '<path d="M21 12a8 8 0 0 1-8 8H5l1.9-3.1A8 8 0 1 1 21 12Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>',
   resumo: '<path d="M3 13h4v7H3zM10 8h4v12h-4zM17 4h4v16h-4z"/>',
   saude: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/><path d="M3.2 12h6.3l.5-1 2 4.5 2-7 1.5 3.5h5.3"/>',
   fluxo: '<path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/>',
@@ -1090,6 +1098,8 @@ const ICONES_MENU = {
   dividas: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   projetos: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   investimentos: '<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/><path d="m16.7 13.9.7.7-2.8 2.8"/>',
+  // estrela: o que o programa de fidelidade dá a quem acumula
+  pontos: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>',
   bens: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
   contas: '<path d="M3 22h18"/><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"/><path d="M12 2 2 7h20Z"/>',
   registros: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
@@ -1111,6 +1121,7 @@ const html = `<title>Gestão Família</title>
     --bom: #1d7348; --bom-fundo: #e1f2e7; --atencao: #9a5b00; --atencao-fundo: #fbefd9;
     --critico: #b02a22; --critico-fundo: #fbe3e0; --neutro: #44566e; --neutro-fundo: #e6ebf2;
     --positivo: #1d7348; --negativo: #b02a22;
+    --dest-consumo: #2a78d6; --dest-dividas: #eb6834; --dest-invest: #1baf7a; --dest-sem: #8d9892;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -1118,6 +1129,7 @@ const html = `<title>Gestão Família</title>
       --linha: #27312c; --acento: #5cc8a8; --acento-fundo: #173a31; --bom: #6fd39c; --bom-fundo: #173526;
       --atencao: #f0b45c; --atencao-fundo: #3a2b12; --critico: #ff8f85; --critico-fundo: #401d1a;
       --neutro: #a9bbd4; --neutro-fundo: #1f2a38; --positivo: #6fd39c; --negativo: #ff8f85;
+      --dest-consumo: #3987e5; --dest-dividas: #d95926; --dest-invest: #199e70; --dest-sem: #6b7872;
     }
   }
   :root[data-theme="dark"] {
@@ -1125,6 +1137,7 @@ const html = `<title>Gestão Família</title>
     --linha: #27312c; --acento: #5cc8a8; --acento-fundo: #173a31; --bom: #6fd39c; --bom-fundo: #173526;
     --atencao: #f0b45c; --atencao-fundo: #3a2b12; --critico: #ff8f85; --critico-fundo: #401d1a;
     --neutro: #a9bbd4; --neutro-fundo: #1f2a38; --positivo: #6fd39c; --negativo: #ff8f85;
+    --dest-consumo: #3987e5; --dest-dividas: #d95926; --dest-invest: #199e70; --dest-sem: #6b7872;
   }
   * { box-sizing: border-box; }
   /* As telas usam display:grid, que anularia o atributo hidden sem esta regra */
@@ -1558,6 +1571,58 @@ const html = `<title>Gestão Família</title>
   .barra-saida { fill: var(--negativo); opacity: .85; }
   .linha-resultado { fill: none; stroke: var(--acento); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .ponto-resultado { fill: var(--acento); }
+  /* Para onde foi a receita: as quatro cores são categóricas (identidade, não bom/ruim) e não repetem o verde/vermelho de entrada/saída. */
+  .dest-c-consumo { background: var(--dest-consumo); fill: var(--dest-consumo); }
+  .dest-c-dividas { background: var(--dest-dividas); fill: var(--dest-dividas); }
+  .dest-c-invest { background: var(--dest-invest); fill: var(--dest-invest); }
+  .dest-c-sem { background: var(--dest-sem); fill: var(--dest-sem); }
+  .dest-c-sobra { background: repeating-linear-gradient(135deg, transparent 0 3px, var(--linha) 3px 5px); box-shadow: inset 0 0 0 1px var(--suave); }
+  .dest-controles { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .dest-resumo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 10px; }
+  .dest-resumo strong { font-family: "IBM Plex Mono", monospace; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .dest-barra { position: relative; display: flex; gap: 2px; height: 36px; }
+  .dest-barra > i { display: block; min-width: 3px; }
+  .dest-barra > i:first-child { border-radius: 8px 0 0 8px; }
+  .dest-barra > i:last-of-type { border-radius: 0 8px 8px 0; }
+  .dest-barra > i:only-of-type { border-radius: 8px; }
+  .dest-marca { position: absolute; top: -6px; bottom: -6px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--tinta); box-shadow: 0 0 0 2px var(--superficie); }
+  .dest-nota { margin: 8px 0 0; font-size: 13px; color: var(--suave); }
+  .dest-lista { display: grid; gap: 8px; margin: 14px 0 16px; }
+  .dest-item { background: var(--superficie); border: 1px solid var(--linha); border-radius: 10px; min-width: 0; }
+  .dest-item > summary, .dest-linha { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto minmax(76px, auto); gap: 6px 12px; align-items: center; padding: 12px 14px; }
+  .dest-item > summary { cursor: pointer; list-style: none; }
+  .dest-item > summary::-webkit-details-marker { display: none; }
+  .dest-item > summary:hover { background: var(--superficie-2); border-radius: 10px; }
+  .dest-item > summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 10px; }
+  .dest-nome { font-weight: 600; }
+  .dest-item > summary .dest-nome::after { content: "▸"; display: inline-block; margin-left: 8px; font-size: 11px; color: var(--suave); transition: transform .15s; }
+  .dest-item[open] > summary .dest-nome::after { transform: rotate(90deg); }
+  .dest-valor { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; }
+  .dest-pct { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; font-size: 17px; }
+  .dest-trilho { grid-column: 2 / -1; height: 4px; border-radius: 2px; background: var(--superficie-2); overflow: hidden; }
+  .dest-trilho > i { display: block; height: 100%; }
+  .dest-detalhe { display: grid; gap: 10px; padding: 0 14px 14px 40px; }
+  .dest-explica { margin: 0; }
+  .dest-grupos, .dest-cats { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .dest-grupos { gap: 8px; }
+  .dest-gl, .dest-cats > li { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 12px; font-size: 13.5px; }
+  .dest-gl > span:first-child { font-weight: 500; }
+  .dest-cats { margin-top: 3px; padding-left: 14px; font-size: 13px; color: var(--suave); }
+  .dest-miudo { display: block; font-weight: 400; font-size: 12px; color: var(--suave); }
+  .dest-liquido { font-weight: 600; border-top: 1px solid var(--linha); padding-top: 6px; }
+  .dest-grupos > li > .dest-cats > li { color: var(--suave); }
+  .dest-pct-s { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; }
+  .dest-seg { stroke: var(--superficie); stroke-width: 1.5; }
+  .dest-traco-receita { stroke: var(--tinta); stroke-width: 2; stroke-linecap: round; }
+  .dest-hit { fill: transparent; cursor: pointer; }
+  .dest-hit:hover { fill: color-mix(in srgb, var(--acento) 9%, transparent); }
+  .leg-traco { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--tinta); border-radius: 1px; flex: none; }
+  @media (max-width: 760px) {
+    .dest-item > summary, .dest-linha { grid-template-columns: 12px minmax(0, 1fr) auto minmax(62px, auto); gap: 4px 8px; padding: 11px 12px; }
+    .dest-detalhe { padding-left: 12px; }
+    .dest-gl, .dest-cats > li { grid-template-columns: minmax(0, 1fr) auto 52px; gap: 8px; }
+    .dest-resumo strong { font-size: 21px; }
+  }
   .grade-grafico { stroke: var(--linha); stroke-width: 1; }
   .grade-zero { stroke: var(--suave); stroke-width: 1.2; }
   .rotulo-mes { fill: var(--suave); font-size: 11px; text-anchor: middle; }
@@ -1606,6 +1671,7 @@ const html = `<title>Gestão Família</title>
   body.sem-valores [data-vista="resumo"] #dash-proximos strong,
   body.sem-valores [data-vista="resumo"] .valor-grafico,
   body.sem-valores [data-vista="resumo"] #evo-texto,
+  body.sem-valores [data-vista="resumo"] #dest-corpo .dest-valor,
   body.sem-valores [data-vista="saude"] .saude-valor,
   body.sem-valores [data-vista="saude"] .saude-meta,
   body.sem-valores [data-vista="saude"] td.num,
@@ -1636,6 +1702,37 @@ const html = `<title>Gestão Família</title>
   .atribuir-pessoa .campo { width: auto; min-width: 180px; }
   /* Por negócio: "Receber" e os ícones de editar/excluir numa linha só; os recebimentos ficam sob a situação */
   [data-vista="comissoes"] td.acao .acoes { flex-wrap: nowrap; align-items: center; }
+  /* Pontos: os botões da linha numa fila só; o motivo da situação (precisa entrar, erro) quebra em vez de esticar a coluna */
+  [data-vista="pontos"] td.acao .acoes { flex-wrap: nowrap; align-items: center; }
+  [data-vista="pontos"] td .meta { max-width: 30ch; white-space: normal; }
+  a.botao { display: inline-block; text-decoration: none; }
+  /* Três botões no alto: no celular não cabem numa linha, então quebram (o "Adicionar programa" ficava cortado) */
+  [data-vista="pontos"] .acoes-cabeca { flex-wrap: wrap; max-width: 100%; }
+  /* Totais por programa e por pessoa: duas tabelas lado a lado, uma sobre a outra no celular */
+  .pts-totais-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; margin-top: 16px; }
+  [data-vista="pontos"] caption { text-align: left; font-weight: 600; padding: 12px 14px 4px; font-size: 14px; }
+  [data-vista="pontos"] table.pts-tabela tfoot th { border-top: 2px solid var(--linha); font-weight: 700; }
+  [data-vista="pontos"] table.pts-tabela td.num, [data-vista="pontos"] table.pts-tabela th.num { text-align: right; white-space: nowrap; }
+  #pts-v-tabela input.campo { width: 110px; text-align: right; }
+  .pts-receita { margin-top: 14px; }
+  .pts-receita summary { cursor: pointer; font-weight: 600; }
+  .pts-receita ol { margin: 8px 0 6px; padding-left: 22px; line-height: 1.5; }
+  #pts-faixa .botao, #pts-velha .botao, #pts-recarregar .botao { margin-left: 8px; }
+  #pts-faixa p, #pts-velha p, #pts-recarregar p { margin: 0; }
+  #pts-faixa ol, #pts-velha ol { margin: 8px 0 6px; padding-left: 22px; line-height: 1.5; }
+  #pts-faixa p.suave, #pts-velha p.suave { margin-top: 2px; }
+  /* Coluna Acesso: o cadeado e o login mascarado numa linha só */
+  .acesso-guardado { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .acesso-guardado .cadeado { color: var(--suave); flex: none; }
+  #pts-c-acesso-campos[hidden] { display: none; }
+  /* Verificação: as opções de canal em coluna, e o código com cara de código */
+  fieldset.canal-codigo { border: 0; padding: 0; margin: 0 0 6px; min-width: 0; }
+  fieldset.canal-codigo[hidden], #pts-v-codigo-bloco[hidden] { display: none; }
+  fieldset.canal-codigo legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+  #pts-v-opcoes { display: grid; gap: 8px; }
+  #pts-v-codigo { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 18px; letter-spacing: 0.18em; }
+  #pts-v-codigo-bloco .marcar { margin-top: 10px; }
+  .login-mascarado { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; }
   .ver-recebimentos { display: block; margin-top: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: 12.5px; color: var(--acento); cursor: pointer; text-align: left; white-space: nowrap; }
   .ver-recebimentos:hover { text-decoration: underline; }
   /* Lista das empresas (Comissões) e das pessoas (Investimentos): a linha inteira abre o detalhe */
@@ -1803,7 +1900,7 @@ const html = `<title>Gestão Família</title>
     .veu[hidden] { display: none; }
 
     .barra-app {
-      display: grid; grid-template-columns: repeat(4, 1fr);
+      display: grid; grid-template-columns: repeat(5, 1fr);
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 65;
       background: var(--superficie); border-top: 1px solid var(--linha);
       padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
@@ -1975,6 +2072,204 @@ const html = `<title>Gestão Família</title>
     #busca { width: 100%; }
     .banco-status { justify-items: start; text-align: left; }
   }
+  /* Chat IA */
+  /* Cara de app de conversa (Claude, ChatGPT): a resposta da IA é texto corrido na largura toda, a pergunta da pessoa fica num balão à
+     direita, o campo de pergunta é uma caixa arredondada com o botão redondo de enviar, e as conversas ficam numa barra que se recolhe
+     (no celular ela abre por cima, como gaveta). A tela ocupa a janela inteira: quem rola é a conversa, não a página. */
+  [data-vista="chat"]:not([hidden]) { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 70px); height: calc(100dvh - 70px); min-height: 320px; }
+  [data-vista="chat"] { color-scheme: light dark; }
+  :root[data-theme="light"] [data-vista="chat"] { color-scheme: light; }
+  :root[data-theme="dark"] [data-vista="chat"] { color-scheme: dark; }
+  [data-vista="chat"] .chat-cabeca { flex: none; margin: 0; }
+  [data-vista="chat"] .chat-cabeca h1 { white-space: nowrap; }
+  [data-vista="chat"] .chat-cabeca.com-acao { display: flex; align-items: center; flex-wrap: nowrap; justify-content: space-between; gap: 12px; }
+  [data-vista="chat"] .chat-cabeca.com-acao > .chat-titulo { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; }
+  [data-vista="chat"] .chat-titulo-texto { min-width: 0; display: grid; gap: 6px; }
+  [data-vista="chat"] .acoes-cabeca { flex: none; display: flex; align-items: center; gap: 10px; }
+  .chat-icone { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--linha); border-radius: 10px; background: var(--superficie); color: var(--suave); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .chat-icone:hover { color: var(--acento); background: var(--acento-fundo); border-color: var(--acento); }
+  .chat-icone svg, .chat-nova svg { display: block; }
+  .chat-nova { display: inline-flex; align-items: center; gap: 8px; }
+  [data-vista="chat"] .aviso { flex: none; }
+  .chat-compor > .aviso { max-width: 800px; margin: 0 auto 8px; }
+  /* O foco por teclado é o mesmo anel do resto do app */
+  [data-vista="chat"] :is(.chat-icone, .chat-item, .chat-mais, .chat-enviar, .chat-sugestao, .chat-copiar, .chat-menu button, .chat-tabela):focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+  [data-vista="chat"] .aviso.critico { background: var(--critico-fundo); color: var(--critico); }
+
+  .chat-layout { position: relative; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 276px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 14px; align-items: stretch; }
+  .chat-layout[data-lateral="fechada"] { grid-template-columns: minmax(0, 1fr); }
+  .chat-layout[data-lateral="fechada"] .chat-lateral { display: none; }
+  .chat-veu { display: none; }
+
+  /* A barra das conversas */
+  .chat-lateral { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--superficie); border: 1px solid var(--linha); border-radius: 14px; padding: 10px 8px 8px; }
+  .chat-lateral-topo { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 6px 10px; }
+  .chat-lateral-titulo { font-weight: 600; font-size: 15px; }
+  .chat-lista-n { color: var(--suave); font-weight: 500; margin-left: 4px; }
+  .chat-lateral-topo .chat-icone { width: 32px; height: 32px; border-color: transparent; background: transparent; }
+  .chat-lista { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  #chat-conversas { list-style: none; margin: 0; padding: 0; }
+  .chat-grupo { padding: 14px 10px 4px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--suave); }
+  .chat-grupo:first-child { padding-top: 6px; }
+  .chat-sem-conversa { padding: 8px 10px; }
+  .chat-conv { display: flex; align-items: center; border-radius: 10px; }
+  .chat-conv:hover, .chat-conv.menu-aberto { background: var(--superficie-2); }
+  .chat-conv.ativa { background: var(--acento-fundo); }
+  .chat-item { flex: 1 1 auto; min-width: 0; text-align: left; font: inherit; font-size: 14px; background: transparent; border: 0; border-radius: 10px; padding: 10px 4px 10px 12px; cursor: pointer; color: var(--tinta); -webkit-tap-highlight-color: transparent; }
+  .chat-conv.ativa .chat-item { font-weight: 600; }
+  .chat-item-titulo { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-mais { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-right: 4px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--suave); cursor: pointer; opacity: 0; -webkit-tap-highlight-color: transparent; }
+  .chat-conv:hover .chat-mais, .chat-conv.ativa .chat-mais, .chat-conv.menu-aberto .chat-mais, .chat-mais:focus-visible { opacity: 1; }
+  .chat-mais:hover { color: var(--tinta); background: var(--linha); }
+  @media (hover: none) { .chat-mais { opacity: 1; } }
+  .chat-menu { position: fixed; z-index: 90; min-width: 176px; padding: 6px; background: var(--superficie); border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2); }
+  .chat-menu button { display: flex; align-items: center; gap: 10px; width: 100%; font: inherit; font-size: 14px; text-align: left; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--tinta); cursor: pointer; }
+  .chat-menu button:hover, .chat-menu button:focus-visible { background: var(--superficie-2); }
+  .chat-menu button.perigo { color: var(--critico); }
+  .chat-menu button.perigo:hover, .chat-menu button.perigo:focus-visible { background: var(--critico-fundo); }
+  #chat-confirmar:not([open]) { display: none; }
+  #chat-confirmar::backdrop { background: rgba(0, 0, 0, 0.45); }
+  #chat-confirmar .modal-corpo { gap: 6px; }
+  .chat-confirmar-botoes { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 14px; }
+  .chat-confirmar-botoes .botao.perigo { background: var(--critico); border-color: var(--critico); color: var(--superficie); font-weight: 600; }
+
+  /* A conversa */
+  .chat-painel { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; background: var(--superficie); border: 1px solid var(--linha); border-radius: 14px; overflow: hidden; }
+  /* Uma coluna que nunca passa da largura da tela (minmax(0, …)): sem isso, uma tabela larga esticava a mensagem para além da borda e o texto saía cortado */
+  .chat-fio { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 24px 20px 12px; display: grid; grid-template-columns: minmax(0, 800px); justify-content: center; align-content: start; gap: 24px; }
+  /* Conversa vazia: o começo da tela fica centrado quando sobra altura; quando falta, começa no topo e rola (margem automática, não centralização, que cortaria o alto) */
+  .chat-fio:has(.chat-vazio) { display: flex; flex-direction: column; justify-content: flex-start; }
+  .chat-fio:has(.chat-vazio) .chat-vazio { width: 100%; max-width: 800px; margin: auto; }
+  .chat-msg { min-width: 0; }
+  .chat-msg.pergunta { display: flex; justify-content: flex-end; }
+  .chat-msg.pergunta .chat-balao { max-width: min(600px, 88%); padding: 10px 16px; border-radius: 20px 20px 6px 20px; background: var(--acento-fundo); color: var(--tinta); line-height: 1.5; overflow-wrap: anywhere; min-width: 0; }
+  .chat-msg.assistente { display: grid; gap: 8px; }
+  .chat-quem { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--suave); }
+  .chat-avatar { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--acento); color: var(--superficie); }
+  .chat-avatar svg { display: block; }
+  .chat-msg.assistente .chat-balao { min-width: 0; max-width: 100%; padding: 0; font-size: 15.5px; line-height: 1.65; overflow-wrap: anywhere; }
+  .chat-md { min-width: 0; }
+  .chat-md > :first-child { margin-top: 0; }
+  .chat-md > :last-child { margin-bottom: 0; }
+  .chat-md p { margin: 0 0 12px; }
+  .chat-md ul, .chat-md ol { margin: 0 0 12px; padding-left: 24px; }
+  .chat-md li { margin: 3px 0; }
+  .chat-md li::marker { color: var(--suave); }
+  .chat-md h4 { margin: 20px 0 6px; font-size: 16.5px; font-weight: 600; line-height: 1.35; }
+  .chat-md blockquote { margin: 0 0 12px; border-left: 3px solid var(--linha); padding-left: 12px; color: var(--suave); }
+  .chat-md hr { border: 0; border-top: 1px solid var(--linha); margin: 16px 0; }
+  .chat-md code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; background: var(--superficie-2); padding: 1px 6px; border-radius: 5px; }
+  .chat-md pre { margin: 0 0 12px; max-width: 100%; overflow-x: auto; background: var(--superficie-2); padding: 12px 14px; border-radius: 10px; line-height: 1.5; }
+  .chat-md pre code { background: none; padding: 0; }
+  /* Tabela: rola de lado por dentro da própria caixa (a mensagem não estica), a primeira coluna fica à vista e uma sombra na borda avisa que tem mais */
+  .chat-tabela-caixa { position: relative; margin: 6px 0 14px; border: 1px solid var(--linha); border-radius: 12px; overflow: hidden; }
+  .chat-tabela { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .chat-tabela table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13.5px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+  .chat-tabela th, .chat-tabela td { padding: 9px 14px; border-bottom: 1px solid var(--linha); text-align: left; white-space: nowrap; background: var(--superficie); }
+  .chat-tabela tr:last-child td { border-bottom: 0; }
+  .chat-tabela th { font-size: 12.5px; font-weight: 600; background: var(--fundo); }
+  .chat-tabela th:first-child, .chat-tabela td:first-child { position: sticky; left: 0; z-index: 1; white-space: normal; min-width: 5.5em; max-width: 13em; }
+  .chat-tabela-caixa.tem-esquerda .chat-tabela th:first-child, .chat-tabela-caixa.tem-esquerda .chat-tabela td:first-child { box-shadow: 1px 0 0 var(--linha), 6px 0 10px -6px rgba(0, 0, 0, 0.25); }
+  .chat-tabela-caixa::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 30px; pointer-events: none; opacity: 0; background: linear-gradient(to left, var(--superficie), transparent); }
+  .chat-tabela-caixa.tem-direita::after { opacity: 1; }
+  .chat-trabalhando { display: flex; align-items: center; gap: 8px; color: var(--suave); font-size: 14px; flex-wrap: wrap; }
+  .chat-pontos { display: inline-flex; gap: 3px; }
+  .chat-pontos i { width: 6px; height: 6px; border-radius: 50%; background: var(--acento); opacity: 0.35; }
+  @media (prefers-reduced-motion: no-preference) { .chat-pontos i { animation: chat-pulso 1.2s infinite ease-in-out; } .chat-pontos i:nth-child(2) { animation-delay: 0.2s; } .chat-pontos i:nth-child(3) { animation-delay: 0.4s; } }
+  @keyframes chat-pulso { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+  .chat-passo-vivo { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--suave); margin-top: 4px; overflow-wrap: anywhere; }
+  .chat-erro { margin: 6px 0 0; color: var(--critico); font-size: 14px; }
+  .chat-erro.suave { color: var(--suave); }
+  .chat-consultas { margin-top: 10px; font-size: 13px; color: var(--suave); }
+  .chat-consultas summary { cursor: pointer; padding: 2px 0; }
+  .chat-consultas ul { margin: 6px 0 0; padding-left: 18px; }
+  .chat-rodape { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: 12.5px; color: var(--suave); }
+  .chat-copiar { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; padding: 4px 8px; margin-left: -8px; border: 0; border-radius: 8px; background: transparent; color: var(--suave); cursor: pointer; }
+  .chat-copiar:hover, .chat-copiar:focus-visible { color: var(--tinta); background: var(--superficie-2); }
+  .chat-copiar svg { display: block; }
+  .chat-copiar.feito { color: var(--bom); }
+  .chat-vazio { display: grid; justify-items: center; gap: 10px; padding: 8px 0; text-align: center; }
+  .chat-vazio-marca { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--acento-fundo); color: var(--acento); }
+  .chat-vazio h3 { font-size: 24px; }
+  .chat-vazio p { max-width: 54ch; }
+  .chat-sugestoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; margin-top: 14px; }
+  .chat-sugestao { font: inherit; font-size: 14px; line-height: 1.4; text-align: left; color: var(--tinta); background: var(--superficie); border: 1px solid var(--linha); border-radius: 14px; padding: 12px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .chat-sugestao:hover { border-color: var(--acento); background: var(--acento-fundo); }
+
+  /* O campo de pergunta */
+  .chat-compor { padding: 6px 20px 12px; }
+  .chat-caixa { max-width: 800px; margin: 0 auto; display: grid; gap: 4px; padding: 12px 12px 10px 18px; border: 1px solid var(--linha); border-radius: 24px; background: var(--superficie); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06); }
+  .chat-caixa:focus-within { border-color: var(--acento); box-shadow: 0 0 0 3px var(--acento-fundo); }
+  #chat-texto { display: block; width: 100%; resize: none; font: inherit; font-size: 16px; line-height: 1.45; min-height: 30px; max-height: 180px; padding: 4px 0; border: 0; outline: none; background: transparent; color: var(--tinta); }
+  #chat-texto::placeholder { color: var(--suave); }
+  .chat-barra { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .chat-escolha { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+  .chat-seletor { font: inherit; font-size: 13px; flex: 0 1 auto; max-width: 100%; min-width: 0; text-overflow: ellipsis; padding: 6px 10px; border: 1px solid var(--linha); border-radius: 999px; background: var(--superficie-2); color: var(--tinta); cursor: pointer; }
+  .chat-seletor:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+  .chat-enviar { flex: none; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: var(--acento); color: var(--superficie); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .chat-enviar:disabled { opacity: 0.3; cursor: default; }
+  .chat-enviar.enviando:disabled { opacity: 0.8; }
+  .chat-enviar svg { display: block; }
+  .chat-enviar.enviando svg { display: none; }
+  .chat-enviar.enviando::after { content: ""; width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; }
+  @media (prefers-reduced-motion: no-preference) { .chat-enviar.enviando::after { animation: chat-giro 0.8s linear infinite; } }
+  @keyframes chat-giro { to { transform: rotate(360deg); } }
+  .chat-so-leitor { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .chat-nota { max-width: 800px; margin: 8px auto 0; text-align: center; font-size: 12px; color: var(--suave); }
+
+  /* Janela estreita (e celular): a barra das conversas vira gaveta por cima da conversa */
+  @media (max-width: 1099px) {
+    .chat-layout, .chat-layout[data-lateral="fechada"] { grid-template-columns: minmax(0, 1fr); }
+    .chat-layout[data-lateral="fechada"] .chat-lateral { display: flex; }
+    .chat-lateral { position: absolute; inset: 0 auto 0 0; z-index: 6; width: min(330px, 88%); border-radius: 0 14px 14px 0; visibility: hidden; transform: translateX(-104%); box-shadow: none; }
+    .chat-layout[data-lateral="aberta"] .chat-lateral { visibility: visible; transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.28); }
+    @media (prefers-reduced-motion: no-preference) {
+      .chat-lateral { transition: transform 0.22s ease, visibility 0s linear 0.22s; }
+      .chat-layout[data-lateral="aberta"] .chat-lateral { transition-delay: 0s; }
+    }
+    .chat-layout[data-lateral="aberta"] .chat-veu { display: block; position: absolute; inset: 0; z-index: 5; padding: 0; border: 0; background: rgba(0, 0, 0, 0.4); border-radius: 14px; }
+    .chat-conv .chat-item { padding-block: 12px; }
+  }
+  @media (max-width: 359px) {
+    [data-vista="chat"] #chat-ponte { font-size: 0; width: 12px; height: 12px; padding: 0; }
+  }
+  @media (pointer: coarse) {
+    .chat-seletor { font-size: 16px; }
+    /* Alvos de toque de pelo menos 40 px */
+    .chat-mais, .chat-icone, .chat-nova, .chat-lateral-topo .chat-icone { min-width: 40px; min-height: 40px; }
+    .chat-copiar, .chat-consultas summary, .chat-seletor, .chat-confirmar-botoes .botao, .chat-trabalhando .botao { min-height: 40px; }
+    .chat-consultas summary { display: flex; align-items: center; }
+    .chat-enviar { width: 40px; height: 40px; }
+  }
+  @media (max-width: 760px) {
+    /* De borda a borda, como app: o texto usa a largura toda da tela. O recuo lateral do corpo (8 px, layout do celular) é devolvido aqui,
+       e a altura desconta a barra de baixo (66 px + a área segura do iPhone); em cima o corpo não tem recuo, o topo é o da própria tela. */
+    [data-vista="chat"]:not([hidden]) { margin: 0 -8px; gap: 6px; height: calc(100vh - 66px); height: calc(100dvh - 66px - env(safe-area-inset-bottom, 0px)); min-height: 360px; }
+    /* O topo fixo do layout do celular (a regra do topo fixo) já recua -8 px de cada lado; aqui a tela inteira já saiu do recuo do corpo */
+    [data-vista="chat"] > .cabeca.chat-cabeca:first-child { margin: 0; padding: calc(6px + env(safe-area-inset-top, 0px)) 16px 6px; }
+    [data-vista="chat"] .chat-cabeca.com-acao { gap: 8px; }
+    [data-vista="chat"] .chat-cabeca .rotulo { display: none; }
+    [data-vista="chat"] .chat-cabeca h1 { font-size: 22px; }
+    [data-vista="chat"] .chat-cabeca .icone-ajuda { width: 26px; height: 26px; font-size: 13px; }
+    [data-vista="chat"] .chat-titulo { gap: 8px; }
+    [data-vista="chat"] .acoes-cabeca { gap: 8px; }
+    [data-vista="chat"] #chat-ponte { padding: 4px 7px; }
+    .chat-nova span { display: none; }
+    .chat-nova { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 10px; }
+    [data-vista="chat"] .aviso { margin: 0 14px; }
+    .chat-layout { gap: 0; }
+    .chat-lateral { border-radius: 0 14px 14px 0; border-left: 0; }
+    .chat-painel { border-width: 1px 0 0; border-radius: 0; }
+    .chat-fio { padding: 16px 14px 8px; gap: 20px; }
+    .chat-msg.pergunta .chat-balao { max-width: 92%; }
+    .chat-msg.assistente .chat-balao { font-size: 15px; line-height: 1.6; }
+    .chat-vazio h3 { font-size: 21px; }
+    .chat-sugestoes { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .chat-compor { padding: 4px 10px 8px; }
+    .chat-caixa { padding: 10px 10px 8px 14px; border-radius: 22px; }
+    .chat-nota { display: none; }
+    .chat-painel:has(.chat-vazio) .chat-nota { display: block; margin-top: 4px; }
+  }
   @media (prefers-reduced-motion: no-preference) {
     .item, .segmento button { transition: background-color 0.12s ease; }
   }
@@ -1995,6 +2290,7 @@ const html = `<title>Gestão Família</title>
     <nav class="menu" id="menu">
       <div class="grupo">
         <span class="rotulo">Visão</span>
+        ${itemMenu("chat", "Chat IA")}
         ${itemMenu("resumo", "Dash")}
         ${itemMenu("saude", "Saúde financeira")}
         ${itemMenu("fluxo", "Fluxo de caixa")}
@@ -2013,6 +2309,7 @@ const html = `<title>Gestão Família</title>
         <span class="rotulo">Patrimônio</span>
         ${itemMenu("investimentos", "Investimentos")}
         ${itemMenu("bens", "Bens")}
+        ${itemMenu("pontos", "Pontos")}
       </div>
       <div class="grupo">
         <span class="rotulo">Consulta e validação</span>
@@ -2040,6 +2337,64 @@ const html = `<title>Gestão Família</title>
   </aside>
 
   <main class="conteudo">
+
+    <section class="vista" data-vista="chat" aria-labelledby="t-chat" hidden>
+      <header class="cabeca com-acao chat-cabeca">
+        <div class="chat-titulo">
+          <button type="button" class="chat-icone" id="chat-lateral-botao" aria-controls="chat-lateral" aria-expanded="false" title="Conversas" aria-label="Conversas"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
+          <div class="chat-titulo-texto">
+            <p class="rotulo">Visão</p>
+            ${tituloComResumo("t-chat", "Chat IA", "Pergunte ao <strong>Claude</strong> ou ao <strong>ChatGPT</strong> sobre o dinheiro da casa: ele consulta os seus lançamentos, saldos, dívidas, investimentos, bens e a previsão de caixa e responde com números e análises. Usa o <strong>limite do seu plano</strong> de cada um, não a API paga. A IA só lê: não altera nada no app. Os números vêm das mesmas contas do Dash, do Fluxo e do Balanço.")}
+          </div>
+        </div>
+        <div class="acoes-cabeca">
+          <span class="pilula neutro" id="chat-ponte" role="status">Verificando a ponte…</span>
+          <button type="button" class="botao chat-nova" id="chat-nova" title="Nova conversa" aria-label="Nova conversa"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>Nova conversa</span></button>
+        </div>
+      </header>
+            <p class="aviso" id="chat-aviso-ponte" role="status" hidden></p>
+      <div class="chat-layout" id="chat-layout" data-lateral="fechada">
+        <aside class="chat-lateral" id="chat-lateral" aria-label="Conversas">
+          <div class="chat-lateral-topo">
+            <span class="chat-lateral-titulo">Conversas <span class="chat-lista-n" id="chat-lista-n"></span></span>
+            <button type="button" class="chat-icone" id="chat-lateral-fechar" title="Recolher as conversas" aria-label="Recolher as conversas"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+          </div>
+          <div class="chat-lista" id="chat-lista">
+            <ul id="chat-conversas" aria-label="Lista de conversas"><li class="suave pequeno chat-sem-conversa">Carregando…</li></ul>
+          </div>
+        </aside>
+        <button type="button" class="chat-veu" id="chat-veu" aria-label="Fechar as conversas" tabindex="-1" hidden></button>
+        <div class="chat-painel" id="chat-painel">
+          <div class="chat-fio" id="chat-fio"></div>
+          <p class="chat-so-leitor" id="chat-anuncio" role="status"></p>
+          <form class="chat-compor" id="chat-form" novalidate>
+            <p class="aviso" id="chat-aviso" role="alert" hidden></p>
+            <div class="chat-caixa">
+              <textarea id="chat-texto" rows="1" maxlength="4000" placeholder="Pergunte sobre os dados da casa…" aria-label="Sua pergunta"></textarea>
+              <div class="chat-barra">
+                <div class="chat-escolha">
+                  <select class="chat-seletor" id="chat-motor" aria-label="Quem responde"><option value="claude">Claude</option><option value="codex">ChatGPT</option></select>
+                  <select class="chat-seletor" id="chat-modelo" aria-label="Modelo" hidden></select>
+                </div>
+                <button type="submit" class="chat-enviar" id="chat-enviar" title="Perguntar" disabled><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg><span class="chat-so-leitor">Perguntar</span></button>
+              </div>
+            </div>
+            <p class="chat-nota">A IA só lê os seus dados e pode errar: confira os números importantes.</p>
+          </form>
+        </div>
+        <div class="chat-menu" id="chat-menu" role="menu" aria-label="Opções da conversa" hidden>
+          <button type="button" role="menuitem" class="perigo" id="chat-menu-excluir"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>Excluir</button>
+        </div>
+      </div>
+      <dialog class="modal-caixa estreita" id="chat-confirmar" aria-labelledby="chat-confirmar-titulo" aria-describedby="chat-confirmar-texto">
+        <header class="modal-topo"><h2 id="chat-confirmar-titulo">Excluir a conversa?</h2></header>
+        <div class="modal-corpo"><p id="chat-confirmar-texto" class="suave">A conversa e as respostas dela somem deste app. Não dá para desfazer.</p></div>
+        <div class="chat-confirmar-botoes">
+          <button type="button" class="botao" id="chat-confirmar-cancelar" autofocus>Cancelar</button>
+          <button type="button" class="botao perigo" id="chat-confirmar-ok">Excluir</button>
+        </div>
+      </dialog>
+    </section>
 
     <section class="vista" data-vista="resumo" aria-labelledby="t-dash">
       <header class="cabeca com-acao">
@@ -2074,6 +2429,34 @@ const html = `<title>Gestão Família</title>
       <section class="secao" aria-labelledby="t-dash-caixa">
         <header><h2 id="t-dash-caixa">Caixa</h2></header>
         <dl class="cartoes-dash" id="dash-caixa"></dl>
+      </section>
+
+      <section class="secao" aria-labelledby="t-dash-destino">
+        <header class="cabeca com-acao">
+          <div>
+            ${tituloComResumo("t-dash-destino", "Para onde foi a receita", "De tudo o que <strong>entrou</strong> no período: quanto foi para <strong>dívidas</strong>, quanto virou <strong>investimento</strong>, quanto foi <strong>consumo</strong> da casa e quanto <strong>sobrou</strong> — em reais e em % da receita. Use Mensal ou Anual. Clique num destino para ver os grupos e as categorias dentro dele, e numa coluna do gráfico para abrir aquele mês.", "h2")}
+            <p class="suave pequeno" id="dest-texto"></p>
+          </div>
+          <div class="dest-controles">
+            <div class="segmento" id="dest-visao" role="group" aria-label="Período da conta">
+              <button type="button" data-visao="mes" aria-pressed="true">Mensal</button>
+              <button type="button" data-visao="ano" aria-pressed="false">Anual</button>
+            </div>
+            <div class="campo-grupo campo-compacto">
+              <label for="dest-periodo">Período</label>
+              <select class="campo" id="dest-periodo"></select>
+            </div>
+          </div>
+        </header>
+        <div id="dest-corpo"></div>
+        <div class="grafico-caixa"><div class="rolagem rolagem-grafico" id="dest-meses"></div></div>
+        <p class="legenda-grafico">
+          <span><i class="leg-cor dest-c-dividas"></i> Dívidas</span>
+          <span><i class="leg-cor dest-c-invest"></i> Investimentos</span>
+          <span><i class="leg-cor dest-c-consumo"></i> Consumo</span>
+          <span><i class="leg-cor dest-c-sem"></i> Sem categoria</span>
+          <span><i class="leg-traco"></i> Receita do mês</span>
+        </p>
       </section>
 
       <section class="secao">
@@ -2185,7 +2568,7 @@ const html = `<title>Gestão Família</title>
       <header class="cabeca com-acao">
         <div>
           <p class="rotulo">Visão</p>
-          ${tituloComResumo("t-fluxo", "Fluxo de caixa", "O que entrou, o que saiu e o que ainda vem, com o realizado e o previsto na mesma tabela. Clique num valor para ver os lançamentos daquele mês e categoria. Valores em <em>itálico</em> são <strong>previstos</strong>: vêm dos Registros e do Endividamento (e dos Projetos, se a caixa estiver marcada) e aparecem nos meses que ainda não chegaram, junto com o saldo projetado.")}
+          ${tituloComResumo("t-fluxo", "Fluxo de caixa", "O que entrou, o que saiu e o que ainda vem, com o realizado e o previsto na mesma tabela. Clique num valor para ver os lançamentos daquele mês e categoria. Valores em <em>itálico</em> são <strong>previstos</strong>: vêm dos Registros e do Endividamento (e dos Projetos, se a caixa estiver marcada) e aparecem nos meses que ainda não chegaram, junto com o saldo projetado. Desmarque <strong>Mostrar previsões</strong> para ver só o real: o que o banco já lançou.")}
         </div>
         <div class="acoes-cabeca"><button type="button" class="icone-olho" data-olho aria-pressed="false" title="Esconder os valores" aria-label="Esconder os valores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="olho-aberto" d="M1.8 12S5.5 5.2 12 5.2 22.2 12 22.2 12 18.5 18.8 12 18.8 1.8 12 1.8 12Z"></path><circle class="olho-aberto" cx="12" cy="12" r="3.2"></circle><path class="olho-fechado" d="M3 3l18 18"></path><path class="olho-fechado" d="M10.6 6.6A7.6 7.6 0 0 1 12 6.5c6.5 0 10.2 5.5 10.2 5.5a17 17 0 0 1-3.5 3.9M6.4 8.1A16.6 16.6 0 0 0 1.8 12s3.7 5.5 10.2 5.5c1.6 0 3-.3 4.2-.8"></path></svg></button><button type="button" class="icone-ajuda" id="fluxo-ajuda" title="Como esta conta é feita" aria-label="Como esta conta é feita">?</button></div>
       </header>
@@ -2216,6 +2599,7 @@ const html = `<title>Gestão Família</title>
         <div class="campo-grupo" id="fluxo-de-grupo" hidden><label for="fluxo-de">De</label><input class="campo" id="fluxo-de" type="date"></div>
         <div class="campo-grupo" id="fluxo-ate-grupo" hidden><label for="fluxo-ate">Até</label><input class="campo" id="fluxo-ate" type="date"></div>
         <div class="campo-grupo"><label for="fluxo-pessoa">Pessoa</label><select class="campo" id="fluxo-pessoa"></select></div>
+        <label class="check" for="fluxo-previsoes" title="Marcada: o que ainda vai acontecer aparece junto (registros, parcelas, contas vencidas). Desmarcada: só o real do período, o que o banco já lançou"><input type="checkbox" id="fluxo-previsoes" checked> Mostrar previsões</label>
         <label class="check" for="fluxo-projetos" title="Os itens planejados dos Projetos entram como saída prevista, na data de cada item"><input type="checkbox" id="fluxo-projetos"> Incluir projetos</label>
         <p class="suave pequeno" id="fluxo-periodo-texto"></p>
         </div>
@@ -2243,6 +2627,8 @@ const html = `<title>Gestão Família</title>
           <li><strong>Um lançamento dá baixa em um registro só.</strong> Se dois registros disputarem o mesmo Pix, quem tem a variação de valor mais apertada fica com ele, e o outro aparece marcado como "disputado".</li>
           <li><strong>Pagamento em dinheiro marcado à mão não entra aqui</strong>, porque o saque que gerou esse dinheiro já aparece no extrato. Contar os dois seria somar o mesmo dinheiro duas vezes.</li>
           <li><strong>Possível cópia não entra em soma nenhuma</strong> (ver Qualidade dos dados).</li>
+          <li><strong>Lançamento pendente (agendado no banco) não conta:</strong> vale o que foi pago. O débito agendado de uma fatura que você pagou só no mínimo não entra; o que foi pago, sim.</li>
+          <li><strong>Mostrar previsões:</strong> desmarcada, a tabela traz só o real do período (o que o banco já lançou) e as colunas que estão todas no futuro saem.</li>
           <li><strong>Projetos (caixa "Incluir projetos" marcada).</strong> O que já foi pago e você vinculou a um projeto sai da categoria e aparece no grupo Projetos, na mesma coluna. O que ainda falta pagar de cada item entra como previsão, na data dele. Valor igual no extrato e no item só deixa de contar duas vezes quando você vincula o lançamento ao item do projeto. Compra no cartão vinculada abate o item, mas o dinheiro só aparece no Fluxo pela fatura.</li>
         </ol>
         </div>
@@ -2696,6 +3082,7 @@ const html = `<title>Gestão Família</title>
                 <button type="button" data-inv-modo="todos" aria-pressed="false">Todos os lançamentos</button>
               </div>
             </div>
+            <div class="campo-grupo"><label for="inv-extrato-pessoa">Pessoa</label><select class="campo" id="inv-extrato-pessoa"></select></div>
             <div class="campo-grupo"><label for="inv-extrato-busca">Buscar no extrato</label><input class="campo" id="inv-extrato-busca" type="search" autocomplete="off" placeholder="Texto ou valor, ex.: genial ou 1900"></div>
             <div class="campo-grupo"><label for="inv-extrato-de">De</label><input class="campo" id="inv-extrato-de" type="date"></div>
             <div class="campo-grupo"><label for="inv-extrato-ate">Até</label><input class="campo" id="inv-extrato-ate" type="date"></div>
@@ -2965,6 +3352,164 @@ const html = `<title>Gestão Família</title>
           <footer class="modal-topo">
             <span class="erro-form" id="bem-a-erro" role="alert"></span>
             <div class="acoes"><button type="button" class="botao fantasma" id="bem-a-cancelar">Cancelar</button><button type="submit" class="botao primario">Salvar valor</button></div>
+          </footer>
+        </div>
+      </form>
+    </section>
+
+    <section class="vista" data-vista="pontos" aria-labelledby="t-pontos" hidden>
+      <header class="cabeca com-acao">
+        <div>
+          <p class="rotulo">Patrimônio</p>
+          ${tituloComResumo("t-pontos", "Pontos", "O saldo de pontos e milhas de cada programa de fidelidade, por pessoa (os pontos são por CPF). Em <strong>Adicionar programa</strong> você escolhe o programa e a pessoa; o app abre o site do programa no seu Chrome e lê o saldo (para isso o Chrome precisa da <strong>extensão</strong>: o botão <strong>Baixar extensão do Chrome</strong> traz o arquivo, e o passo a passo aparece enquanto ela não estiver instalada). <strong>Atualizar</strong> lê de novo, e <strong>Atualizar todos</strong> lê conta por conta, uma de cada vez. <strong>Login e senha são opcionais.</strong> Com o acesso guardado, a extensão lê direto se o Chrome já estiver logado nessa conta; se não estiver, entra sozinha com o login e a senha guardados; e, se o Chrome estiver logado em <em>outra pessoa</em> nesse programa, ela troca de conta (limpa a sessão só daquele programa e entra na conta certa), por isso convém guardar o acesso de todas as contas. Sem acesso guardado, a extensão lê a sessão que já está aberta neste Chrome. A senha fica <strong>cifrada</strong> no banco. A coluna <strong>Acesso</strong> mostra o login mascarado, e o botão <strong>Acesso</strong> de cada linha abre o login e a senha guardados (a senha aparece, para você conferir) para trocar ou remover. Programa que não tem login com senha (só “Entrar com Google” ou código por e-mail) não pede acesso: a leitura usa a sessão do Chrome. Esta tela é um controle à parte: não entra no Fluxo de caixa, no DRE nem em Registros.")}
+        </div>
+        <div class="acoes-cabeca">
+          <a class="botao" id="pts-baixar" href="/extensao-pontos.zip" download="extensao-pontos.zip" title="Baixa a extensão do Chrome que lê os saldos (instala uma vez, no Chrome de cada pessoa)">Baixar extensão do Chrome</a>
+          <button type="button" class="botao" id="pts-valores" title="Quanto vale, em reais, o milheiro de cada programa (venda e uso): é com ele que a tela estima o valor dos seus pontos">Valor dos pontos</button>
+          <button type="button" class="botao" id="pts-atualizar-todos" disabled>Atualizar todos</button>
+          <button type="button" class="botao primario" id="pts-adicionar">Adicionar programa</button>
+        </div>
+      </header>
+      <p class="aviso" id="pts-aviso" role="status" hidden></p>
+      <div class="aviso" id="pts-faixa" hidden>
+        <p>Para ler os saldos sozinho falta a <strong>extensão do Chrome</strong>, que ainda não foi encontrada neste navegador.
+          <a class="botao pequeno primario" id="pts-baixar-faixa" href="/extensao-pontos.zip" download="extensao-pontos.zip">Baixar extensão do Chrome</a>
+          <button type="button" class="botao pequeno fantasma" id="pts-verificar">Verificar de novo</button></p>
+        <ol>
+          <li>Abra o arquivo baixado e deixe a pasta <strong>extensao-pontos</strong> num lugar fixo (ela não pode ser apagada depois: o Chrome lê a extensão dela).</li>
+          <li>No Chrome, abra <strong>chrome://extensions</strong> e ligue o <strong>Modo do desenvolvedor</strong> (canto superior direito).</li>
+          <li>Clique em <strong>Carregar sem compactação</strong> e escolha a pasta <strong>extensao-pontos</strong>.</li>
+          <li>Volte aqui e clique em <strong>Verificar de novo</strong>.</li>
+        </ol>
+        <p class="suave pequeno">Cada pessoa instala no Chrome dela. Enquanto isso, “Lançar saldo” digita o número à mão.</p>
+      </div>
+      <div class="aviso" id="pts-recarregar" role="alert" hidden>
+        <p><strong>Recarregue esta página.</strong> A extensão do Chrome foi instalada, removida ou recarregada depois que esta página abriu, e a página ficou falando com uma cópia que já não existe (é por isso que a leitura dá o erro “A extensão foi recarregada”). Depois de recarregar, o <strong>Atualizar</strong> volta a funcionar.
+          <button type="button" class="botao pequeno primario" id="pts-recarregar-agora">Recarregar a página</button></p>
+      </div>
+      <div class="aviso" id="pts-velha" hidden>
+        <p><strong>Há uma extensão do Chrome mais nova.</strong> <span id="pts-velha-versoes"></span> A antiga não entra sozinha com o login e a senha guardados (ela só lê o que já está aberto no Chrome), e uma extensão carregada à mão não se atualiza sozinha.
+          <a class="botao pequeno primario" id="pts-baixar-velha" href="/extensao-pontos.zip" download="extensao-pontos.zip">Baixar a extensão nova</a></p>
+        <ol>
+          <li>Abra o arquivo baixado e deixe a pasta <strong>extensao-pontos</strong> num lugar fixo (o Chrome lê a extensão dela).</li>
+          <li>No Chrome, abra <strong>chrome://extensions</strong> e clique em <strong>Remover</strong> na extensão antiga, “Gestão Família — leitor de pontos”.</li>
+          <li>Clique em <strong>Carregar sem compactação</strong> (com o <strong>Modo do desenvolvedor</strong> ligado) e escolha a pasta <strong>extensao-pontos</strong> nova.</li>
+          <li>Volte aqui e <strong>recarregue esta página</strong> (⌘R). Sem isso os botões dão o erro “A extensão foi recarregada”. O aviso some quando a extensão nova for encontrada.</li>
+        </ol>
+        <p class="suave pequeno">Uma extensão só por Chrome: se a antiga ficar instalada junto, as duas leriam o saldo.</p>
+      </div>
+      <dl class="numeros" id="pts-resumo"></dl>
+      <div class="filtros" id="pts-filtros" hidden>
+        <div class="campo-grupo"><label for="pts-f-pessoa">Pessoa</label><select class="campo" id="pts-f-pessoa"></select></div>
+        <button type="button" class="botao fantasma" id="pts-f-limpar" hidden>Limpar filtro</button>
+      </div>
+      <div class="lista-bancos" id="pts-lista"></div>
+      <div id="pts-totais" hidden></div>
+
+      <form class="modal" id="form-pts-conectar" novalidate role="dialog" aria-modal="true" aria-labelledby="form-pts-conectar-titulo" hidden>
+        <div class="modal-caixa estreita">
+          <header class="modal-topo"><h2 id="form-pts-conectar-titulo">Adicionar programa</h2><button type="button" class="botao fantasma" id="pts-c-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <div class="form-grade">
+              <div class="campo-grupo"><label for="pts-c-programa">Programa</label><select class="campo" id="pts-c-programa"></select></div>
+              <div class="campo-grupo"><label for="pts-c-pessoa">Pessoa</label><select class="campo" id="pts-c-pessoa"></select></div>
+            </div>
+            <div class="form-grade" id="pts-c-acesso-campos">
+              <div class="campo-grupo"><label for="pts-c-login" id="pts-c-login-rotulo">Login</label><input class="campo" id="pts-c-login" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="opcional"></div>
+              <div class="campo-grupo"><label for="pts-c-senha">Senha</label><input class="campo" id="pts-c-senha" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="opcional"></div>
+            </div>
+            <p class="suave pequeno" id="pts-c-login-nota" hidden></p>
+            <p class="suave pequeno" id="pts-c-site"></p>
+            <p class="suave pequeno" id="pts-c-acesso-texto">Login e senha são opcionais. Com eles, a extensão lê direto se o Chrome já estiver logado nessa conta; se não estiver, entra sozinha; e, se o Chrome estiver logado em outra pessoa nesse programa, troca de conta (limpa a sessão só daquele programa e entra na conta certa), por isso convém guardar o acesso de todas as contas. Sem eles, a extensão lê a sessão que já está aberta neste Chrome. A senha fica cifrada no banco; depois, o botão Acesso da linha mostra o login e a senha guardados.</p>
+            <p class="suave pequeno" id="pts-c-sem-senha" hidden>Este programa não tem login com senha (só “Entrar com Google” ou código por e-mail). A leitura usa a sessão que já está aberta neste Chrome: entre uma vez no site, e o app lê o saldo.</p>
+            <p class="suave pequeno" id="pts-c-extensao"></p>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="pts-c-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="pts-c-cancelar">Cancelar</button><button type="submit" class="botao primario" id="pts-c-conectar">Conectar</button></div>
+          </footer>
+        </div>
+      </form>
+
+      <form class="modal" id="form-pts-saldo" novalidate role="dialog" aria-modal="true" aria-labelledby="form-pts-saldo-titulo" hidden>
+        <div class="modal-caixa estreita">
+          <header class="modal-topo"><h2 id="form-pts-saldo-titulo">Lançar saldo</h2><button type="button" class="botao fantasma" id="pts-s-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <p class="suave pequeno" id="pts-s-info"></p>
+            <div class="form-grade">
+              <div class="campo-grupo"><label for="pts-s-pontos">Saldo</label><input class="campo" id="pts-s-pontos" inputmode="numeric" autocomplete="off" placeholder="4.321"></div>
+              <div class="campo-grupo"><label for="pts-s-venc">Vencimento (opcional)</label><input class="campo" id="pts-s-venc" type="date"></div>
+            </div>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="pts-s-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="pts-s-cancelar">Cancelar</button><button type="submit" class="botao primario">Salvar saldo</button></div>
+          </footer>
+        </div>
+      </form>
+
+      <form class="modal" id="form-pts-codigo" novalidate role="dialog" aria-modal="true" aria-labelledby="form-pts-codigo-titulo" hidden>
+        <div class="modal-caixa estreita">
+          <header class="modal-topo"><h2 id="form-pts-codigo-titulo">Verificação</h2><button type="button" class="botao fantasma" id="pts-v-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <p class="suave pequeno" id="pts-v-dica"></p>
+            <fieldset class="canal-codigo" id="pts-v-canal" hidden>
+              <legend>Para onde o site deve enviar o código?</legend>
+              <div id="pts-v-opcoes"></div>
+            </fieldset>
+            <div id="pts-v-codigo-bloco" hidden>
+              <div class="campo-grupo"><label for="pts-v-codigo">Código</label><input class="campo" id="pts-v-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" spellcheck="false"></div>
+              <label class="marcar"><input type="checkbox" id="pts-v-lembrar" checked> Não pedir mais neste navegador</label>
+            </div>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="pts-v-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="pts-v-cancelar">Cancelar</button><button type="submit" class="botao primario" id="pts-v-enviar">Enviar código</button></div>
+          </footer>
+        </div>
+      </form>
+
+      <form class="modal" id="form-pts-valores" novalidate role="dialog" aria-modal="true" aria-labelledby="form-pts-valores-titulo" hidden>
+        <div class="modal-caixa">
+          <header class="modal-topo"><h2 id="form-pts-valores-titulo">Valor dos pontos (R$ por mil pontos)</h2><button type="button" class="botao fantasma" id="pts-v-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <p class="suave pequeno"><strong>Venda</strong> é o que costuma render vender mil pontos (ou transferir para outro programa e vender): o piso, dinheiro de verdade.
+              <strong>Uso</strong> é quanto mil pontos valem quando você resgata uma passagem ou um produto que compraria de qualquer jeito: o teto. A tela multiplica pelo saldo e mostra a faixa.
+              <strong>Os valores de partida são palpites, sem cotação ao vivo</strong>: ajuste ao que você realmente consegue. Deixe em branco para tirar o programa da conta.</p>
+            <div class="rolagem"><table class="pts-tabela" id="pts-v-tabela"><thead><tr><th>Programa</th><th class="num">Venda (R$)</th><th class="num">Uso (R$)</th></tr></thead><tbody id="pts-v-corpo"></tbody></table></div>
+            <details class="pts-receita">
+              <summary>Formas de transformar pontos em reais</summary>
+              <ol>
+                <li><strong>Resgatar o que você já ia comprar</strong> (passagem, hotel): em geral o melhor valor por ponto, mas é economia, não dinheiro na conta.</li>
+                <li><strong>Transferir com bônus:</strong> pontos de banco ou Livelo viram milhas aéreas nas campanhas de bônus (às vezes 80% a 100%), e aí valem mais, para resgatar ou para vender.</li>
+                <li><strong>Vender milhas</strong> em plataformas que compram milhas (como MaxMilhas e HotMilhas): paga em reais, por um preço menor que o de uso.</li>
+                <li><strong>Emitir passagem para terceiros:</strong> costuma ferir o regulamento e arrisca bloquear a conta.</li>
+              </ol>
+              <p class="suave pequeno">Confira o regulamento de cada programa antes de vender: vários proíbem a venda de pontos. A venda pode ter imposto de renda (confirme com o contador), e os pontos vencem: vença-os por último.</p>
+            </details>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="pts-v-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma" id="pts-v-cancelar">Cancelar</button><button type="submit" class="botao primario" id="pts-v-salvar">Salvar valores</button></div>
+          </footer>
+        </div>
+      </form>
+
+      <form class="modal" id="form-pts-acesso" novalidate role="dialog" aria-modal="true" aria-labelledby="form-pts-acesso-titulo" hidden>
+        <div class="modal-caixa estreita">
+          <header class="modal-topo"><h2 id="form-pts-acesso-titulo">Acesso à conta</h2><button type="button" class="botao fantasma" id="pts-a-fechar">Fechar</button></header>
+          <div class="modal-corpo">
+            <p class="suave pequeno" id="pts-a-info"></p>
+            <div class="form-grade">
+              <div class="campo-grupo"><label for="pts-a-login" id="pts-a-login-rotulo">Login</label><input class="campo" id="pts-a-login" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+              <div class="campo-grupo"><label for="pts-a-senha">Senha</label><input class="campo" id="pts-a-senha" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+            </div>
+            <p class="suave pequeno" id="pts-a-login-nota" hidden></p>
+            <p class="suave pequeno" id="pts-a-ajuda"></p>
+          </div>
+          <footer class="modal-topo">
+            <span class="erro-form" id="pts-a-erro" role="alert"></span>
+            <div class="acoes"><button type="button" class="botao fantasma perigo" id="pts-a-remover" hidden>Remover acesso</button><button type="button" class="botao fantasma" id="pts-a-cancelar">Cancelar</button><button type="submit" class="botao primario" id="pts-a-salvar">Salvar acesso</button></div>
           </footer>
         </div>
       </form>
@@ -3465,6 +4010,7 @@ const html = `<title>Gestão Família</title>
 <!-- Celular: barra inferior fixa, como em app nativo. As três telas de consulta
      diária ficam à mão; o resto entra pelo menu (os três risquinhos). -->
 <nav class="barra-app" id="barra-app" aria-label="Navegação principal">
+  <button type="button" class="barra-item" data-ir="chat"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H5l1.9-3.1A8 8 0 1 1 21 12Z"></path><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"></path></svg><span>Chat IA</span></button>
   <button type="button" class="barra-item" data-ir="resumo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h4v7H3zM10 8h4v12h-4zM17 4h4v16h-4z"></path></svg><span>Dash</span></button>
   <button type="button" class="barra-item" data-ir="fluxo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 7-8"></path><path d="M14 7h6v6"></path></svg><span>Fluxo</span></button>
 ${mostra("dre") ? `  <button type="button" class="barra-item" data-ir="dre"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M8 13h8M8 17h5"></path></svg><span>DRE</span></button>` : `  <button type="button" class="barra-item" data-ir="balanco"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"></path><path d="M5 21h14"></path><path d="M5 7h14"></path><path d="m5 7-3 8a3.5 3.5 0 0 0 6 0Z"></path><path d="m19 7-3 8a3.5 3.5 0 0 0 6 0Z"></path></svg><span>Balanço</span></button>`}
@@ -3486,7 +4032,10 @@ ${codigoComum}
   const hora = (iso) => (!iso || soDia(iso) ? "" : new Date(iso).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }));
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const POR_PAGINA = 100;
-  const VISTAS = ${JSON.stringify(["resumo", "saude", "fluxo", "dre", "balanco", "analises", "recorrentes", "projetos", "registros", "contas", "investimentos", "bens", "comissoes", "dividas", "config", "qualidade"].filter(mostra))};
+  const VISTAS = ${JSON.stringify(["chat", "resumo", "saude", "fluxo", "dre", "balanco", "analises", "recorrentes", "projetos", "registros", "contas", "investimentos", "bens", "pontos", "comissoes", "dividas", "config", "qualidade"].filter(mostra))};
+  // A tela em que o app abre quando o endereço não diz qual (o start_url "/" do app instalado): o Chat IA.
+  // Um endereço com tela que não existe mais (#dre, que saiu do menu) segue caindo no Dash, como antes.
+  const TELA_INICIAL = "resumo";
 
   // ---- Resumo da tela, disponível pelo ícone junto ao título ----
   const resumoTela = document.getElementById("resumo-tela");
@@ -3557,7 +4106,8 @@ ${codigoComum}
   function rotularTabelas() {
     if (!telaPequena.matches) return;
     for (const t of document.querySelectorAll("table:not(.matriz)")) {
-      if (t.closest('[data-vista="recorrentes"]')) continue;
+      // Recorrentes tem layout próprio; a tabela de uma resposta do Chat IA é texto largo que rola por dentro dela, não uma lista
+      if (t.closest('[data-vista="recorrentes"]') || t.closest('[data-vista="chat"]')) continue;
       const cab = t.querySelector("thead tr:last-child");
       if (!cab) continue;
       const nomes = [...cab.children].map((th) => (th.textContent || "").replace(/\\s+/g, " ").trim());
@@ -3769,10 +4319,13 @@ ${codigoComum}
     };
     const filtradas = registros.filter((l) => passaFiltros(l) && !(estado.esconderCopias && l.x) && !(estado.soCopias && !l.x));
 
-    let entradas = 0, saidas = 0, transf = 0, nTransf = 0, fatura = 0, nFatura = 0, cartao = 0, nCartao = 0, copias = 0, nCopias = 0;
+    let entradas = 0, saidas = 0, transf = 0, nTransf = 0, fatura = 0, nFatura = 0, cartao = 0, nCartao = 0, copias = 0, nCopias = 0, agendado = 0, nAgendado = 0;
     for (const l of filtradas) {
       // Possível cópia não entra em soma nenhuma (duplicação da integração)
       if (l.x === 1) { copias += Math.abs(l.v); nCopias++; continue; }
+      // Pendente na CONTA (agendado, ainda não saiu): a linha continua na lista, com a marca, mas não entra nas somas — o
+      // débito da fatura que o banco agendou e o cliente pagou só no mínimo contava duas vezes em "Pagamento de fatura".
+      if (l.st === 1 && !contaPorIndice[l.c].cartao) { agendado += Math.abs(l.v); nAgendado++; continue; }
       // A mesma transferência aparece dos dois lados: soma só a saída, para não dobrar
       if (l.tt === "transferencia") { if (l.v < 0) transf += Math.abs(l.v); nTransf++; continue; }
       if (l.tt === "fatura") { if (l.v < 0) fatura += Math.abs(l.v); nFatura++; continue; }
@@ -3792,7 +4345,8 @@ ${codigoComum}
       (nFatura ? "<span>Pagamento de fatura <strong>" + brl.format(fatura) + "</strong> (" + inteiro.format(nFatura) + ")</span>" : "") +
       (nTransf ? "<span>Transferências entre contas <strong>" + brl.format(transf) + "</strong> (" + inteiro.format(nTransf) + ")</span>" : "") +
       (nCopias ? "<span>Possíveis cópias ignoradas <strong>" + brl.format(copias) + "</strong> (" + inteiro.format(nCopias) + ")</span>" : "") +
-      "<span>Cada coisa numa conta: compra no cartão não é saída de caixa (o caixa sai no pagamento da fatura), transferência entre contas não é gasto, e possível cópia não entra em soma nenhuma.</span>";
+      (nAgendado ? "<span>Agendado no banco, fora das somas <strong>" + brl.format(agendado) + "</strong> (" + inteiro.format(nAgendado) + ")</span>" : "") +
+      "<span>Cada coisa numa conta: compra no cartão não é saída de caixa (o caixa sai no pagamento da fatura), transferência entre contas não é gasto, possível cópia não entra em soma nenhuma, e o que o banco ainda mostra como pendente (agendado) não entra até sair.</span>";
 
     const paginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
     estado.pagina = Math.min(Math.max(0, estado.pagina), paginas - 1);
@@ -3828,8 +4382,8 @@ ${codigoComum}
   }
 
   sincronizarControles();
-  let inicial = "resumo";
-  try { inicial = (location.hash || "").replace("#", "") || "resumo"; } catch (e) {}
+  let inicial = TELA_INICIAL;
+  try { inicial = (location.hash || "").replace("#", "") || TELA_INICIAL; } catch (e) {}
   mostrar(inicial);
 })();
 </script>
@@ -3859,6 +4413,9 @@ ${codigoInvestimentos}
 ${codigoComissoes}
 </script>
 <script>
+${codigoPontos}
+</script>
+<script>
 ${codigoBancos}
 </script>
 
@@ -3878,6 +4435,9 @@ ${codigoSaudeCalculo}
 ${codigoBalancoCalculo}
 </script>
 <script>
+${codigoDestinoCalculo}
+</script>
+<script>
 ${codigoDash}
 </script>
 <script>
@@ -3894,6 +4454,9 @@ ${codigoAnalisesCalculo}
 </script>
 <script>
 ${codigoAnalises}
+</script>
+<script>
+${codigoChat}
 </script>
 `;
 

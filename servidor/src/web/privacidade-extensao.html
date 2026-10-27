@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidade — Extensão Gestão Família (leitor de pontos)</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: light dark; --fundo: #f6f5f1; --superficie: #fff; --tinta: #1c1c1a; --suave: #6b6b64; --linha: #e3e1da; --acento: #0e6b57; }
+  @media (prefers-color-scheme: dark) { :root { --fundo: #14140f; --superficie: #1c1c18; --tinta: #f2f1eb; --suave: #a3a299; --linha: #2c2c26; --acento: #5cc8a8; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 56px; background: var(--fundo); color: var(--tinta); line-height: 1.6;
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; background: var(--superficie); border: 1px solid var(--linha); border-radius: 14px; padding: 28px 28px 32px; }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.02em; line-height: 1.25; }
+  h2 { margin: 28px 0 6px; font-size: 17px; color: var(--acento); }
+  p, li { font-size: 15px; }
+  p { margin: 8px 0; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .suave { color: var(--suave); font-size: 13.5px; }
+  .marca { margin: 0 0 4px; color: var(--suave); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<main>
+  <p class="marca">Gestão Família</p>
+  <h1>Política de privacidade da extensão “Gestão Família — leitor de pontos”</h1>
+  <p class="suave">Última atualização: 23 de outubro de 2026.</p>
+
+  <h2>O que é a extensão</h2>
+  <p>É um complemento do Chrome que faz parte do app <strong>Gestão Família</strong>, um app privado de finanças da casa (em gestao.seudominio.com.br). Ela lê, no navegador de quem a instalou, o <strong>saldo de pontos e milhas</strong> dos programas de fidelidade da própria pessoa (Livelo, Azul Fidelidade, Sicredi, LATAM Pass e Gol/Smiles) e entrega o número ao app.</p>
+
+  <h2>Quando ela age</h2>
+  <p>Somente quando a pessoa, na tela Pontos do app, clica em <strong>Atualizar</strong>, <strong>Atualizar todos</strong> ou <strong>Conectar</strong>. Ela não roda por conta própria, não observa o que você navega e não age em nenhum site fora dos cinco programas acima e da página do app.</p>
+
+  <h2>Que dados ela acessa</h2>
+  <ul>
+    <li><strong>O saldo e o nome do titular</strong>, como aparecem na página do programa. O nome serve só para conferir que a conta que está logada é a da pessoa certa.</li>
+    <li><strong>O login e a senha da conta do programa</strong>, apenas se a pessoa os guardou no app e o site pedir login. O app os entrega à extensão naquele momento; ela os digita no formulário do site e os descarta. A extensão <strong>não os guarda</strong>: nem em armazenamento, nem em registro (log).</li>
+    <li><strong>O código de verificação</strong> que o site envia por e-mail ou telefone, quando a pessoa o digita no app: é repassado ao site uma única vez e descartado.</li>
+  </ul>
+
+  <h2>O que a extensão NÃO faz</h2>
+  <ul>
+    <li>Não envia dado nenhum para o desenvolvedor, para serviços de análise, de publicidade ou para terceiros.</li>
+    <li>Não vende nem compartilha dados, e não os usa para nenhum outro fim além de ler o saldo.</li>
+    <li>Não lê o histórico, os favoritos nem as outras abas. Não executa código baixado de fora.</li>
+    <li>Não contorna captcha, verificação em duas etapas nem proteção contra robô: se o site pedir, a pessoa resolve.</li>
+  </ul>
+
+  <h2>Para onde vão os dados</h2>
+  <p>O saldo vai para a página do app, no mesmo navegador, que o grava no banco do próprio app da família. As credenciais vão do app para a extensão e daí para o site do próprio programa. Não há outro destino.</p>
+
+  <h2>Permissões que ela pede, e por quê</h2>
+  <ul>
+    <li><strong>Acesso aos sites dos programas</strong> (livelo.com.br, voeazul.com.br, sicredi.com.br, latamairlines.com, smiles.com.br e voegol.com.br, com os endereços de login deles): para abrir a página do programa, ler o saldo e, se houver acesso guardado, preencher o login.</li>
+    <li><strong>scripting</strong>: para rodar a leitura dentro dessas páginas.</li>
+    <li><strong>browsingData</strong>: para limpar os cookies e o armazenamento local <em>só do programa em questão</em>, e somente quando a conta lida é de outra pessoa que a logada naquele Chrome e existe acesso guardado — assim a extensão entra na conta certa. Nenhum outro site é tocado.</li>
+    <li><strong>A página do app</strong> (gestao.seudominio.com.br): é por onde o app pede a leitura e recebe o resultado.</li>
+  </ul>
+
+  <h2>Como o app guarda o acesso</h2>
+  <p>Fora da extensão, no app, o login e a senha ficam <strong>cifrados</strong> (AES-256-GCM) no banco, com a chave fora do banco, e só uma rota protegida pelo login do app os entrega, uma conta por vez. A pessoa pode remover o acesso de uma conta a qualquer momento, na tela Pontos.</p>
+
+  <h2>Seus controles</h2>
+  <p>Você pode desinstalar a extensão a qualquer momento, remover o acesso guardado de qualquer conta no app, ou apagar a conta de pontos (o que apaga o acesso e o histórico de saldos dela).</p>
+
+  <h2>Crianças</h2>
+  <p>A extensão não é destinada a menores de idade.</p>
+
+  <h2>Conformidade com a política da Chrome Web Store</h2>
+  <p>O uso das informações obtidas por esta extensão segue a Política de Dados do Usuário da Chrome Web Store, incluindo os requisitos de Uso Limitado: os dados são usados apenas para a finalidade única descrita acima.</p>
+
+  <h2>Mudanças nesta política</h2>
+  <p>Se algo mudar, esta página é atualizada e a data de “última atualização” muda com ela.</p>
+
+  <h2>Contato</h2>
+  <p>Quem administra o app Gestão Família, a pessoa que lhe enviou o link de instalação da extensão.</p>
+</main>
+</body>
+</html>

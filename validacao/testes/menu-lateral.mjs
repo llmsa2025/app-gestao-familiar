@@ -24,7 +24,7 @@ console.log("Menu lateral\n");
   const itens = await pagina.$$eval("#menu .item", (bs) => bs.map((b) => ({
     nome: b.querySelector(".item-nome")?.textContent.trim(), icone: !!b.querySelector("svg.ico"), contador: !!b.querySelector(".contador"),
   })));
-  conferir("O menu tem as 15 telas (o DRE saiu; entraram Balanço e Análises)", itens.length === 15, String(itens.length));
+  conferir("O menu tem as 17 telas (o DRE saiu; entraram Balanço, Análises, Pontos e, no topo, o Chat IA)", itens.length === 17, String(itens.length));
   conferir("Toda tela tem ícone", itens.every((i) => i.icone), itens.filter((i) => !i.icone).map((i) => i.nome).join(", "));
   conferir("Nenhuma tela mostra número na frente", itens.every((i) => !i.contador) && !(await pagina.$("#menu .contador")));
   conferir("Os contadores antigos não existem mais", !(await pagina.$("#com-contador, #div-contador, #inv-contador")));

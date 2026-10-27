@@ -31,7 +31,7 @@ console.log("DRE: fora da visualização, e de volta quando se quer\n");
   conferir("De volta: a tela abre pelo endereço #dre", await b.pagina.isVisible('[data-vista="dre"]') && (await b.pagina.locator("#dre-tabela").count()) === 1);
   conferir("De volta: o item de menu existe, antes do Balanço", (await b.pagina.$$eval("#menu .item", (is) => is.map((i) => i.dataset.ir))).join(",").includes("fluxo,dre,balanco"));
   const barra = await b.pagina.$$eval(".barra-item span", (ss) => ss.map((s) => s.textContent.trim()));
-  conferir("De volta: a barra do celular tem o DRE no lugar do Balanço", barra.join("·") === "Dash·Fluxo·DRE·Menu", barra.join("·"));
+  conferir("De volta: a barra do celular tem o DRE no lugar do Balanço", barra.join("·") === "Chat IA·Dash·Fluxo·DRE·Menu", barra.join("·"));
   conferir("De volta: nenhum erro de JavaScript", b.erros.length === 0, b.erros.join(" | "));
   await b.navegador.close();
 }

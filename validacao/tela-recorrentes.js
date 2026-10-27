@@ -179,7 +179,9 @@
         // nome o PIX de 13/10/2026 para o Bradesco dela e virou "Financiamento da casa"; pegaria até um PIX
         // de R$ 100 para outra conta dela, na 2ª passagem (qualquer valor). Se for pagamento de verdade,
         // "Achar no extrato" liga à mão. (Em produção, em 14 meses, esse foi o único caso.)
-        return conta && !conta.cartao && !l.cand &&
+        // Pendente no banco (agendado) não paga nada: vale o que foi pago. Se desse baixa, o registro ficava "Pago" e o
+        // Fluxo, que já descarta o pendente, perdia o realizado E o previsto (a água de R$ 58,27 sumia dos dois).
+        return conta && !conta.cartao && !l.cand && l.st !== 1 &&
           (natureza === "entrada" ? l.v > 0 : l.v < 0) && l.x !== 1 && !l.tt &&
           !!window.RECORRENCIA.provaDeIdentidade(rec, l, PONTES) &&
           window.CATEGORIAS.aceitaData(categoriaDe(rec), l.d);
@@ -718,7 +720,7 @@
     return (DADOS.registros || [])
       .filter((l) => {
         const conta = contaPorIndice[l.c];
-        if (!conta || conta.cartao || l.tt || l.x === 1) return false;
+        if (!conta || conta.cartao || l.tt || l.x === 1 || l.st === 1) return false; // agendado ainda não pagou
         if (natureza === "entrada" ? l.v <= 0 : l.v >= 0) return false;
         if (usados.has(chaveLancamento(l))) return false;
         if (window.CATEGORIAS.periodoDe(categoriaDe(rec))) {

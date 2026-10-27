@@ -19,6 +19,7 @@ estão em [`referencias.md`](referencias.md) (lê-se quando a conta pedir).
 | Guarda | `servidor/src/analises.mjs`, coleção `analises`, migration `025-analises.sql` | um documento por cenário (`cenario-<id>`) e `premissas`; o servidor **valida e descarta** o que não conhece. |
 | Balanço | `validacao/balanco-calculo.js`, `tela-balanco.js` | ativo × passivo × patrimônio líquido, circulante/não circulante. |
 | Saúde financeira | `validacao/saude-calculo.js` | indicadores, reserva de emergência, abastança, fotos mensais. |
+| Destino da receita | `validacao/destino-calculo.js` (`window.DESTINO`), painel "Para onde foi a receita" em `tela-dash.js` | de tudo o que entrou: dívidas, investimentos (líquido de cada investimento: aportes − resgates, o que passa dos aportes é retirada), consumo, sem categoria e sobra, em R$ e em % da receita (mensal e anual). **Puro**; o Dash lhe entrega os meses (`doMes`). O que é dívida = grupo "Financiamentos e dívidas" + parcela do sítio + parcelamento de impostos + seguro residencial (`REGRAS_PADRAO`). Ver `docs/decisoes.md` (21/10/2026). |
 | Dados do app | `window.DASH.entradaDoBalanco(pessoa)`, `entradaDaSaude(pessoa)` | contas, investimentos, bens e dívidas já no filtro de pessoa. **Reaproveite; não recalcule.** |
 
 Regra do projeto (R5): **cada número tem uma conta só.** O patrimônio líquido do Balanço tem de bater com o da Saúde

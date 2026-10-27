@@ -14,10 +14,13 @@ import { abrirLab } from "../abertura-lab.mjs";
 import { conferir, fechar } from "./util.mjs";
 
 const TETO = {
-  nos: 4600,               // DOM inteiro na abertura em "Resumo" (meta do plano: < 6.000)
-  nosAbertoEmRegistros: 7000, // abrindo direto em Registros (a lista está pintada)
+  // 21/10/2026: "Para onde foi a receita" está na primeira tela do Dash, então precisa pintar na abertura (a pergunta do
+  // cabeçalho, respondida): +394 nós (4.317 → 4.711 em "Resumo"). Os dois tetos de nós subiram 400, a mesma folga de antes.
+  nos: 5000,               // DOM inteiro na abertura em "Resumo" (meta do plano: < 6.000)
+  nosAbertoEmRegistros: 7400, // abrindo direto em Registros (a lista está pintada)
   opcoes: 600,             // <option> no DOM (a lista de categorias não se repete mais por linha)
-  htmlBytes: 2_350_000,
+  // 27/10/2026: a junção do layout do celular, dos Projetos com vínculos e das telas Pontos e Chat IA trouxe o código da página a 2,39 MB (2,35 MB antes).
+  htmlBytes: 2_450_000,
   chamadasApi: 4,          // lote + estado + eu + fontes
   conciliacoes: 3,         // recálculos do motor de conciliação na abertura (eram 12)
   desenhosRegistrosAbertoEmRegistros: 8, // eram 9 e variam com a ordem em que os dados chegam (6 a 7 aqui); o que não varia é: nenhum com a tela escondida

@@ -1,0 +1,14 @@
+{
+  "name": "gestao-familia-chat-ponte",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ponte do Chat IA: atende as perguntas da tela com o Claude e o ChatGPT do plano (claude -p / codex exec) e entrega a eles ferramentas só de leitura sobre os dados. Roda no VPS; sem dependências.",
+  "scripts": {
+    "start": "node iniciar.mjs",
+    "test": "node testes/ferramentas.mjs && node testes/ponte.mjs"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "extensao-pontos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extensão do Chrome que lê o saldo dos programas de pontos para o app Gestão Família. Só o teste usa dependências.",
+  "type": "module",
+  "scripts": {
+    "test": "xvfb-run -a node testes/ponte.mjs",
+    "empacotar": "node empacotar.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

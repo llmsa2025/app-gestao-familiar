@@ -124,7 +124,7 @@ Problemas estruturais já encontrados e corrigidos; a pergunta em cada mudança 
 ## O que revisar em toda mudança
 
 1. O código implementa o caminho do dado acima? Onde ele foge?
-2. Cada regra R1–R13 é **garantida por teste** que falharia se ela quebrasse?
+2. Cada regra R1–R14 é **garantida por teste** que falharia se ela quebrasse?
 3. Há cálculo duplicado entre telas (R5)?
 4. A identidade do estabelecimento precisa mudar? Como, sem perder o que já foi
    classificado (rechaveamento)?

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Gestão Família — leitor de pontos",
+  "version": "0.2.4",
+  "description": "Lê o saldo dos seus programas de pontos e milhas no Chrome, quando o app Gestão Família pede. Não guarda senha.",
+  "minimum_chrome_version": "111",
+  "icons": { "16": "icones/icone-16.png", "48": "icones/icone-48.png", "128": "icones/icone-128.png" },
+  "permissions": ["scripting", "browsingData"],
+  "host_permissions": [
+    "https://*.livelo.com.br/*",
+    "https://*.voeazul.com.br/*",
+    "https://*.sicredi.com.br/*",
+    "https://*.latamairlines.com/*",
+    "https://*.smiles.com.br/*",
+    "https://*.voegol.com.br/*"
+  ],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://gestao.seudominio.com.br/*"],
+      "js": ["ponte-pagina.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://gestao.seudominio.com.br/*"],
+      "js": ["ponte-extensao.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

@@ -20,6 +20,8 @@ COPY servidor/migrar.mjs ./migrar.mjs
 COPY servidor/migrations ./migrations
 COPY servidor/scripts ./scripts
 COPY validacao /app/validacao
+# A extensão do Chrome da tela Pontos: o app monta o zip a partir desta pasta
+COPY extensao-pontos /app/extensao-pontos
 
 ENV NODE_ENV=production
 EXPOSE 3200

@@ -37,7 +37,7 @@ async function abrirNoCelular(vista = "resumo") {
 
   conferir("A barra de baixo aparece no celular", await pagina.isVisible("#barra-app"));
   const itens = await pagina.$$eval(".barra-item", (bs) => bs.map((b) => b.textContent.trim()));
-  conferir("Tem Dash, Fluxo, Balanço e Menu", itens.join("·") === "Dash·Fluxo·Balanço·Menu", itens.join(" · "));
+  conferir("Tem Chat IA, Dash, Fluxo, Balanço e Menu (o Chat IA vem antes do Dash)", itens.join("·") === "Chat IA·Dash·Fluxo·Balanço·Menu", itens.join(" · "));
   conferir("A gaveta começa fechada", !(await pagina.isVisible(".lateral.aberta")));
 
   // Fica presa embaixo mesmo rolando — barra que some no scroll vira rodapé.

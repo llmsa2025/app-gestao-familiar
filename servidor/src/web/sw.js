@@ -2,7 +2,8 @@
 // NUNCA guarda resposta de API — dado financeiro velho em cache é pior que tela
 // vazia, porque parece atual.
 // gf-v2 (16/10/2026): trocar o nome é o que faz o aparelho descartar o cache antigo (inclusive o db-servidor.js velho) e baixar de novo.
-const CACHE = "gf-v2";
+// gf-v4 (23/10/2026): nenhum .zip fica em cache (a extensão do Chrome e o material da loja): a versão velha seria entregue para sempre.
+const CACHE = "gf-v4";
 const CASCA = ["/entrar.css", "/manifest.webmanifest", "/icone-192.png", "/icone-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,7 +19,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
-  if (url.pathname.startsWith("/api/") || url.pathname === "/" || url.pathname === "/entrar") return; // sempre da rede
+  if (url.pathname.startsWith("/api/") || url.pathname === "/" || url.pathname === "/entrar" || url.pathname.endsWith(".zip")) return; // sempre da rede
   e.respondWith(
     caches.match(e.request).then((achou) => achou || fetch(e.request).then((r) => {
       const copia = r.clone();

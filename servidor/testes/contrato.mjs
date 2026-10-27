@@ -856,6 +856,169 @@ try {
     conferir("Comissões: não cria nem altera pagamentos de Registros", (await uma("SELECT count(*)::int AS n FROM pagamentos WHERE observacao ILIKE '%comiss%'")).n === 0);
   }
 
+  // ---- pontos: catálogo, contas (um programa de uma pessoa) e histórico de saldos ----
+  {
+    const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const recusaApagar = async (colecao, id) => { const res = resposta(); await colecoes.apagar(requisicao(), res, colecao, id); return res.status; };
+    const contaDe = async (id) => (await achar("pontos_contas", id))?.dados;
+    const saldosDe = async (contaId) => (await listar("pontos_saldos")).map((d) => d.dados).filter((s) => s.contaId === String(contaId));
+
+    const catalogo = (await listar("pontos_programas")).map((d) => d.dados);
+    conferir("Pontos: o catálogo vem com os programas de partida, com unidade e endereço seguro",
+      catalogo.length >= 4 && catalogo.every((p) => typeof p.id === "string" && p.chave && p.nome && ["pontos", "milhas"].includes(p.unidade) && /^https:\/\//.test(p.url)), JSON.stringify(catalogo[0]));
+    conferir("Pontos: o catálogo é dado do banco, e cada módulo de leitura (chave) aparece uma vez só", new Set(catalogo.map((p) => p.chave.toLowerCase())).size === catalogo.length);
+    conferir("Pontos: o catálogo não se edita pela tela (gravar e apagar dão 405)",
+      (await recusa("pontos_programas", "novo", { chave: "x", nome: "X", unidade: "pontos", url: "https://x.example/" })) === 405 && (await recusaApagar("pontos_programas", catalogo[0].id)) === 405);
+    // ---- o valor dos pontos em reais (24/10/2026): a ÚNICA coisa do catálogo que a tela edita ----
+    const valorOk = (v) => v === null || (typeof v === "number" && v >= 0 && v <= 1000);
+    conferir("Pontos: cada programa traz o valor em reais por milheiro (venda e uso) ou null, e quando foi conferido (vazio = valor de partida)",
+      catalogo.every((p) => valorOk(p.valorVenda) && valorOk(p.valorUso) && typeof p.valorEm === "string"), JSON.stringify(catalogo.map((p) => [p.chave, p.valorVenda, p.valorUso, p.valorEm])));
+    conferir("Pontos: o Livelo, a Azul, a Gol e a LATAM já vêm com valores de partida (a venda nunca acima do uso) e o Shopping do Sicredi vem sem valor",
+      ["livelo", "azul", "gol", "latam"].every((k) => { const p = catalogo.find((x) => x.chave === k); return p && p.valorVenda > 0 && p.valorUso >= p.valorVenda && p.valorEm === ""; }) && catalogo.find((x) => x.chave === "sicredi").valorVenda === null);
+    const alfa = catalogo.find((p) => p.chave === "azul");
+    const antesDosOutros = JSON.stringify(catalogo.filter((p) => p.id !== alfa.id));
+    await gravar("pontos_programas", alfa.id, { valorVenda: 17.5, valorUso: "26,90" });
+    let depois = (await achar("pontos_programas", alfa.id)).dados;
+    conferir("Pontos: gravar os valores muda só os dois valores do programa (aceita vírgula), põe a data de hoje e não mexe nos outros programas",
+      depois.valorVenda === 17.5 && depois.valorUso === 26.9 && depois.valorEm === hoje && depois.nome === alfa.nome && depois.url === alfa.url
+        && JSON.stringify((await listar("pontos_programas")).map((d) => d.dados).filter((p) => p.id !== alfa.id)) === antesDosOutros, JSON.stringify(depois));
+    await gravar("pontos_programas", alfa.id, { ...depois, valorVenda: 18 });
+    depois = (await achar("pontos_programas", alfa.id)).dados;
+    conferir("Pontos: a tela pode devolver o programa inteiro (com nome, unidade e endereço iguais) e só o valor que mudou muda", depois.valorVenda === 18 && depois.valorUso === 26.9);
+    conferir("Pontos: valor negativo, acima de mil, texto ou objeto é recusado (400) e nada muda",
+      (await recusa("pontos_programas", alfa.id, { valorVenda: -1 })) === 400 && (await recusa("pontos_programas", alfa.id, { valorUso: 1001 })) === 400
+        && (await recusa("pontos_programas", alfa.id, { valorUso: "abc" })) === 400 && (await recusa("pontos_programas", alfa.id, { valorVenda: {} })) === 400
+        && (await achar("pontos_programas", alfa.id)).dados.valorVenda === 18);
+    conferir("Pontos: trocar nome, unidade, chave ou endereço do programa continua proibido (405), e criar ou apagar também",
+      (await recusa("pontos_programas", alfa.id, { nome: "Outro nome" })) === 405 && (await recusa("pontos_programas", alfa.id, { url: "https://outro.example/" })) === 405
+        && (await recusa("pontos_programas", "9999", { valorVenda: 10 })) === 405 && (await recusa("pontos_programas", "novo", { valorVenda: 10 })) === 405);
+    await gravar("pontos_programas", alfa.id, { valorVenda: null, valorUso: null });
+    depois = (await achar("pontos_programas", alfa.id)).dados;
+    conferir("Pontos: dá para apagar os dois valores (null): o programa sai da estimativa", depois.valorVenda === null && depois.valorUso === null);
+    await gravar("pontos_programas", alfa.id, { valorVenda: alfa.valorVenda, valorUso: alfa.valorUso }); // devolve o valor de partida (o teste não deixa rastro)
+    await consultar("UPDATE pts_programas SET valor_conferido_em = NULL WHERE id = $1", [alfa.id]);
+
+    const sensiveis = (await consultar("SELECT column_name FROM information_schema.columns WHERE table_name LIKE 'pts\\_%' AND column_name ~* '(senha|password|passwd|login|cookie|token|segredo|credencial)' ORDER BY column_name")).rows.map((r) => r.column_name);
+    conferir("Pontos: as únicas colunas com nome de segredo são o rótulo do login, o aviso de que o site aceita senha e o acesso CIFRADO/mascarado (nunca senha ou cookie em texto)",
+      JSON.stringify(sensiveis) === JSON.stringify(["aceita_senha", "login_cifrado", "login_mascarado", "login_nota", "login_rotulo", "senha_cifrada"]), sensiveis);
+    conferir("Pontos: cada programa do catálogo diz como se chama o login dele (dado do banco), e não é igual para todos",
+      catalogo.every((p) => typeof p.loginRotulo === "string" && p.loginRotulo.length > 2) && new Set(catalogo.map((p) => p.loginRotulo)).size > 1, catalogo.map((p) => p.loginRotulo));
+
+    const titular = await uma("INSERT INTO pessoas (nome, primeiro_nome) VALUES ('Titular Pontos', 'Titular') RETURNING id");
+    const outra = await uma("INSERT INTO pessoas (nome, primeiro_nome) VALUES ('Outra Pontos', 'Outra') RETURNING id");
+    const [prog1, prog2] = catalogo;
+
+    // Conta: um programa de uma pessoa
+    const c1 = await gravar("pontos_contas", "novo", { programaId: prog1.id, pessoaId: String(titular.id) });
+    let c = await contaDe(c1.id);
+    conferir("Pontos: a conta nova volta com ids em texto, “ainda não lida”, sem saldo e sem leitura",
+      !!c && c.programaId === prog1.id && c.pessoaId === String(titular.id) && c.status === "nunca_lido" && c.pontos === null && c.saldoData === "" && c.ultimaLeitura === "" && c.vencimento === "" && c.mensagem === "", JSON.stringify(c));
+    conferir("Pontos: a conta guarda só os campos do contrato — login e senha soltos na conta não existem (o acesso tem canal próprio)",
+      !("senha" in c) && !("login" in c) && c.temAcesso === false && c.loginMascarado === "" && JSON.stringify(Object.keys(c).sort()) === JSON.stringify(["id", "loginMascarado", "mensagem", "pessoaId", "pontos", "programaId", "saldoData", "status", "temAcesso", "ultimaLeitura", "vencimento"]));
+    conferir("Pontos: a mesma conta duas vezes é recusada com 409, dizendo programa e pessoa",
+      (await recusa("pontos_contas", "novo", { programaId: prog1.id, pessoaId: String(titular.id) })) === 409);
+    const outraConta = await gravar("pontos_contas", "novo", { programaId: prog1.id, pessoaId: String(outra.id) });
+    conferir("Pontos: o mesmo programa para outra pessoa é outra conta (os pontos são por CPF)", (await listar("pontos_contas")).length === 2 && outraConta.id !== c1.id);
+    conferir("Pontos: conta sem pessoa é recusada (400); sem programa (400); programa que não existe (404); pessoa que não existe (400)",
+      (await recusa("pontos_contas", "novo", { programaId: prog2.id })) === 400 && (await recusa("pontos_contas", "novo", { pessoaId: String(titular.id) })) === 400
+      && (await recusa("pontos_contas", "novo", { programaId: "999999", pessoaId: String(titular.id) })) === 404 && (await recusa("pontos_contas", "novo", { programaId: prog2.id, pessoaId: "999999" })) === 400);
+    conferir("Pontos: recusa não deixa conta pela metade", (await listar("pontos_contas")).length === 2);
+
+    // Saldo de hoje: põe a conta em "ok" e atualiza a última leitura, na mesma gravação
+    const s1 = await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 4321, vencimento: "2027-03-31", origem: "leitor" });
+    c = await contaDe(c1.id);
+    const idadeMs = Date.now() - new Date(c.ultimaLeitura).getTime();
+    conferir("Pontos: gravar o saldo de hoje põe a conta em “ok”, com o saldo, o vencimento e a leitura de agora",
+      c.status === "ok" && c.pontos === 4321 && c.saldoData === hoje && c.vencimento === "2027-03-31" && idadeMs >= 0 && idadeMs < 60000, JSON.stringify(c));
+    const s = (await saldosDe(c1.id))[0];
+    conferir("Pontos: o saldo volta com a conta em texto, data AAAA-MM-DD, pontos em número e a origem",
+      !!s && s.id === s1.id && s.contaId === c1.id && s.data === hoje && s.pontos === 4321 && s.vencimento === "2027-03-31" && s.origem === "leitor", JSON.stringify(s));
+    const antes = c.ultimaLeitura;
+    await new Promise((ok) => setTimeout(ok, 30));
+    const s2 = await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 6400 });
+    c = await contaDe(c1.id);
+    conferir("Pontos: ler de novo no mesmo dia SUBSTITUI o saldo (um por conta e dia), sem empilhar", s2.id === s1.id && (await saldosDe(c1.id)).length === 1 && c.pontos === 6400 && c.vencimento === "");
+    conferir("Pontos: a leitura mais nova atualiza o horário da última leitura", new Date(c.ultimaLeitura) > new Date(antes));
+    conferir("Pontos: sem dizer a origem, o saldo é “manual”", (await saldosDe(c1.id))[0].origem === "manual");
+
+    // Saldo de um dia que passou: entra no histórico sem fingir que a conta foi lida agora
+    const lidaEm = c.ultimaLeitura;
+    await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 5000, data: "2026-01-05" });
+    c = await contaDe(c1.id);
+    conferir("Pontos: saldo de um dia passado entra no histórico, mas o mais recente e a última leitura seguem os de hoje",
+      (await saldosDe(c1.id)).length === 2 && c.pontos === 6400 && c.saldoData === hoje && c.ultimaLeitura === lidaEm);
+
+    // Falha de leitura: só a situação muda; a última leitura que deu certo e o último saldo ficam
+    await gravar("pontos_contas", c1.id, { ...c, status: "precisa_entrar", mensagem: "A sessão caiu: entre no site." });
+    c = await contaDe(c1.id);
+    conferir("Pontos: marcar “precisa entrar” guarda a mensagem e NÃO mexe na última leitura nem no saldo",
+      c.status === "precisa_entrar" && c.mensagem === "A sessão caiu: entre no site." && c.ultimaLeitura === lidaEm && c.pontos === 6400, JSON.stringify(c));
+    // O motivo da falha + o rastro da extensão (até 320 caracteres) cabem: com o limite antigo de 200 a falha era recusada e a conta seguia "Atualizado"
+    const motivoComRastro = "O site barrou a entrada automática (proteção contra robô). Passos da extensão: " + "@acesso.livelo.com.br > login:clicou_entrar(Login) > ".repeat(6).slice(0, 320).trim(); // o servidor apara os espaços das pontas
+    await gravar("pontos_contas", c1.id, { ...c, status: "precisa_entrar", mensagem: motivoComRastro });
+    conferir("Pontos: a mensagem de uma falha comporta o motivo MAIS o rastro da extensão (até 600 caracteres) e a situação é gravada",
+      motivoComRastro.length > 200 && motivoComRastro.length < 600 && (await contaDe(c1.id)).status === "precisa_entrar" && (await contaDe(c1.id)).mensagem === motivoComRastro, motivoComRastro.length);
+    conferir("Pontos: mensagem acima de 600 caracteres é recusada (400) e a situação anterior fica", (await recusa("pontos_contas", c1.id, { ...c, status: "erro", mensagem: "x".repeat(601) })) === 400 && (await contaDe(c1.id)).status === "precisa_entrar");
+    await gravar("pontos_contas", c1.id, { ...c, status: "erro", mensagem: "Não achei o saldo na página." });
+    conferir("Pontos: de “precisa entrar” para “erro” troca a mensagem", (await contaDe(c1.id)).status === "erro" && (await contaDe(c1.id)).mensagem === "Não achei o saldo na página.");
+    conferir("Pontos: a tela não pode afirmar “ok” nem inventar situação (só falha de leitura se marca)",
+      (await recusa("pontos_contas", c1.id, { ...c, status: "ok" })) === 400 && (await recusa("pontos_contas", c1.id, { ...c, status: "nunca_lido" })) === 400 && (await recusa("pontos_contas", c1.id, { ...c, status: "qualquer" })) === 400);
+    await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 5100, data: "2026-02-10" });
+    conferir("Pontos: lançar um saldo antigo não tira a conta da falha (só o de hoje a põe em “ok”)", (await contaDe(c1.id)).status === "erro");
+    await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 6500 });
+    c = await contaDe(c1.id);
+    conferir("Pontos: um saldo de hoje depois da falha volta a conta para “ok” e limpa a mensagem", c.status === "ok" && c.mensagem === "" && c.pontos === 6500);
+
+    // Editar a conta
+    const { pessoaId: _p, ...semPessoa } = c;
+    await gravar("pontos_contas", c1.id, semPessoa);
+    conferir("Pontos: editar sem falar da pessoa (página antiga) não a apaga", (await contaDe(c1.id)).pessoaId === String(titular.id));
+    conferir("Pontos: trocar a conta para uma pessoa que já tem esse programa é recusado (409)", (await recusa("pontos_contas", c1.id, { ...c, pessoaId: String(outra.id) })) === 409);
+    conferir("Pontos: o programa de uma conta não muda (400)", (await recusa("pontos_contas", c1.id, { ...c, programaId: prog2.id })) === 400);
+    conferir("Pontos: pessoa que não existe na edição é recusada", (await recusa("pontos_contas", c1.id, { ...c, pessoaId: "999999" })) === 400);
+
+    // Saldo inválido
+    const base = { contaId: c1.id, pontos: 100 };
+    conferir("Pontos: pontos negativos, com casa decimal, em texto ou em branco são recusados",
+      (await recusa("pontos_saldos", "novo", { ...base, pontos: -1 })) === 400 && (await recusa("pontos_saldos", "novo", { ...base, pontos: 10.5 })) === 400
+      && (await recusa("pontos_saldos", "novo", { ...base, pontos: "4.321" })) === 400 && (await recusa("pontos_saldos", "novo", { ...base, pontos: "" })) === 400 && (await recusa("pontos_saldos", "novo", { contaId: c1.id })) === 400);
+    conferir("Pontos: pontos acima do limite do banco são recusados com mensagem, não com erro técnico", (await recusa("pontos_saldos", "novo", { ...base, pontos: 3_000_000_000 })) === 400);
+    conferir("Pontos: saldo zero é válido (LATAM hoje tem 0)", (await recusa("pontos_saldos", "novo", { contaId: outraConta.id, pontos: 0 })) === 200);
+    conferir("Pontos: data no futuro, que não existe (31 de fevereiro) ou mal escrita é recusada",
+      (await recusa("pontos_saldos", "novo", { ...base, data: "2999-01-01" })) === 400 && (await recusa("pontos_saldos", "novo", { ...base, data: "2026-02-31" })) === 400 && (await recusa("pontos_saldos", "novo", { ...base, data: "05/01/2026" })) === 400);
+    conferir("Pontos: vencimento que não existe é recusado", (await recusa("pontos_saldos", "novo", { ...base, vencimento: "2027-02-30" })) === 400);
+    conferir("Pontos: conta que não existe (404) ou ausente (400) é recusada", (await recusa("pontos_saldos", "novo", { ...base, contaId: "999999" })) === 404 && (await recusa("pontos_saldos", "novo", { pontos: 1 })) === 400);
+    conferir("Pontos: origem desconhecida é recusada", (await recusa("pontos_saldos", "novo", { ...base, origem: "adivinhado" })) === 400);
+    conferir("Pontos: recusa não deixa saldo pela metade nem mexe na conta", (await saldosDe(c1.id)).length === 3 && (await contaDe(c1.id)).pontos === 6500);
+
+    // Editar um saldo pelo id; colidir com outro dia é recusado
+    const antigo = (await saldosDe(c1.id)).find((x) => x.data === "2026-01-05");
+    await gravar("pontos_saldos", antigo.id, { ...antigo, pontos: 5050 });
+    conferir("Pontos: editar um saldo mantém o id e o dia", (await saldosDe(c1.id)).find((x) => x.id === antigo.id)?.pontos === 5050 && (await saldosDe(c1.id)).length === 3);
+    conferir("Pontos: mover um saldo para um dia que já tem saldo é recusado (409)", (await recusa("pontos_saldos", antigo.id, { ...antigo, data: "2026-02-10" })) === 409);
+
+    // Apagar
+    for (const x of (await saldosDe(c1.id)).filter((y) => y.data !== hoje)) await apagar("pontos_saldos", x.id);
+    conferir("Pontos: apagar saldos antigos não mexe no de hoje nem na conta", (await saldosDe(c1.id)).length === 1 && (await contaDe(c1.id)).status === "ok");
+    await apagar("pontos_saldos", (await saldosDe(c1.id))[0].id);
+    c = await contaDe(c1.id);
+    conferir("Pontos: apagar o ÚLTIMO saldo devolve a conta a “ainda não lida” (não fica “atualizado” sem número)",
+      c.status === "nunca_lido" && c.pontos === null && c.ultimaLeitura === "" && c.saldoData === "");
+    await gravar("pontos_saldos", "novo", { contaId: c1.id, pontos: 10 });
+    await apagar("pontos_contas", c1.id);
+    conferir("Pontos: apagar a conta leva o histórico dela", !(await achar("pontos_contas", c1.id)) && (await saldosDe(c1.id)).length === 0);
+    conferir("Pontos: apagar a conta não mexe nas outras", !!(await achar("pontos_contas", outraConta.id)) && (await saldosDe(outraConta.id)).length === 1);
+
+    // Pessoa apagada: a conta fica, sem pessoa
+    await consultar("DELETE FROM pessoas WHERE id = $1", [outra.id]);
+    conferir("Pontos: apagar a pessoa deixa a conta e o histórico, sem pessoa", (await contaDe(outraConta.id)).pessoaId === "" && (await saldosDe(outraConta.id)).length === 1);
+    await apagar("pontos_contas", outraConta.id);
+    await consultar("DELETE FROM pessoas WHERE id = $1", [titular.id]);
+    conferir("Pontos: nada sobra depois dos testes, e o catálogo continua inteiro",
+      (await listar("pontos_contas")).length === 0 && (await listar("pontos_saldos")).length === 0 && (await listar("pontos_programas")).length === catalogo.length);
+    conferir("Pontos: não cria nem altera registros, pagamentos ou lançamentos", (await uma("SELECT count(*)::int AS n FROM pagamentos WHERE observacao ILIKE '%ponto%'")).n === 0);
+  }
+
   // ---- dívida: o ajuste de um cartão NÃO pode virar dívida nova a cada edição ----
   const AJUSTE = "cartao-itau-itau-visa-platinum-marina";
   const dadosCartao = { nome: "Itaú Platinum", credor: "Itaú", tipo: "Cartão", saldo: 12000, parcela: 3000, parcelas: 4, primeiro: "2026-10", dia: 10 };
@@ -1626,6 +1789,219 @@ try {
   conferir("Webhook: sem endereço público (rodando local), não cadastra nada", local.ok === false && !chamadasWh.length);
   if (semUrl !== undefined) process.env.VERCEL_PROJECT_PRODUCTION_URL = semUrl;
   config.urlPublica = urlAntiga;
+
+  // A extensão do Chrome dos pontos, entregue pelo próprio app (botão "Baixar extensão do Chrome" da tela Pontos)
+  {
+    const { createHash } = await import("node:crypto");
+    const http = await import(join(SERVIDOR, "src/http.mjs"));
+    const { ARQUIVOS_DA_EXTENSAO, ARQUIVOS_DA_LOJA, zipParaALoja, zipDoMaterialDaLoja } = await import(join(SERVIDOR, "src/extensao.mjs"));
+    const baixar = async (cabecalhos, rota = "/extensao-pontos.zip") => {
+      const req = Readable.from([]);
+      Object.assign(req, { method: "GET", url: rota, headers: cabecalhos, socket: { remoteAddress: "127.0.0.1" } });
+      // O `resposta()` comum guarda o corpo como texto e estragaria um arquivo binário: este guarda os bytes
+      const res = { status: 200, cab: {}, buf: Buffer.alloc(0), headersSent: false, writeHead(s, h) { this.status = s; Object.assign(this.cab, h || {}); }, setHeader() {}, end(b) { this.buf = b ? Buffer.from(b) : Buffer.alloc(0); } };
+      await app.tratar(req, res);
+      return res;
+    };
+    const semLogin = await baixar({});
+    conferir("Extensão: sem sessão o zip não sai (manda para o login e não entrega nada)", semLogin.status === 302 && semLogin.cab.Location === "/entrar" && semLogin.buf.length === 0, String(semLogin.status));
+
+    const pessoaDoLogin = await uma("INSERT INTO pessoas (nome, primeiro_nome) VALUES ('Baixa Extensão', 'Baixa') RETURNING id");
+    const usuario = await uma("INSERT INTO usuarios (pessoa_id, email, senha_hash) VALUES ($1, 'extensao@teste.exemplo', 'sem-login') RETURNING id", [pessoaDoLogin.id]);
+    const token = await http.criarSessao(usuario.id, { headers: {}, socket: { remoteAddress: "127.0.0.1" } });
+    const r = await baixar({ cookie: `gf_sessao=${token}` });
+    conferir("Extensão: com sessão o zip sai (200, application/zip, anexo com o nome certo, sem cache)",
+      r.status === 200 && r.cab["Content-Type"] === "application/zip" && r.cab["Content-Disposition"] === 'attachment; filename="extensao-pontos.zip"' && /no-store/.test(r.cab["Cache-Control"]) && Number(r.cab["Content-Length"]) === r.buf.length && r.buf.length > 1000, JSON.stringify(r.cab));
+
+    // Um leitor INDEPENDENTE do que montou o zip (o zipfile do Python): íntegro, com a pasta e os arquivos certos
+    const lido = JSON.parse(execFileSync("python3", ["-c", `
+import sys, io, json, zipfile, hashlib
+z = zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))
+print(json.dumps({"ruim": z.testzip(), "arquivos": {i.filename: hashlib.sha256(z.read(i.filename)).hexdigest() for i in z.infolist()}}))
+`], { input: r.buf, encoding: "utf8" }));
+    conferir("Extensão: o zip é íntegro (CRC de cada arquivo confere)", lido.ruim === null, String(lido.ruim));
+    const esperados = Object.fromEntries(ARQUIVOS_DA_EXTENSAO.map((nome) => [`extensao-pontos/${nome}`, createHash("sha256").update(readFileSync(join(RAIZ, "extensao-pontos", nome))).digest("hex")]));
+    conferir("Extensão: tem os arquivos da extensão, dentro da pasta extensao-pontos/, idênticos aos do repositório (nada de teste, node_modules ou zip)",
+      JSON.stringify(lido.arquivos) === JSON.stringify(esperados) && Object.keys(lido.arquivos).length === ARQUIVOS_DA_EXTENSAO.length && ARQUIVOS_DA_EXTENSAO.length === 11, Object.keys(lido.arquivos).join(", "));
+    conferir("Extensão: a Vercel leva esses arquivos junto da função (includeFiles do vercel.json)",
+      (({ includeFiles }) => ["extensao-pontos/*.js", "extensao-pontos/manifest.json", "extensao-pontos/LEIA-ME.txt", "extensao-pontos/icones/*.png"].every((g) => includeFiles.includes(g)))(JSON.parse(readFileSync(join(RAIZ, "vercel.json"), "utf8")).functions["api/index.mjs"]));
+    const r2 = await baixar({ cookie: `gf_sessao=${token}` });
+    conferir("Extensão: o mesmo conteúdo dá sempre o mesmo zip, byte a byte", Buffer.compare(r.buf, r2.buf) === 0);
+
+    // O pacote da Chrome Web Store: o mesmo conteúdo, com o manifest.json NA RAIZ e sem o LEIA-ME; os ícones do manifesto existem e têm o tamanho que dizem
+    const loja = JSON.parse(execFileSync("python3", ["-c", `
+import sys, io, json, zipfile
+z = zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))
+print(json.dumps({"ruim": z.testzip(), "nomes": z.namelist(), "manifesto": json.loads(z.read("manifest.json"))}))
+`], { input: zipParaALoja(), encoding: "utf8" }));
+    conferir("Loja: o zip é íntegro, com o manifest.json na RAIZ (a loja não aceita pasta por fora) e sem o LEIA-ME",
+      loja.ruim === null && loja.nomes.includes("manifest.json") && !loja.nomes.some((n) => n.startsWith("extensao-pontos/") || n === "LEIA-ME.txt") && JSON.stringify(loja.nomes) === JSON.stringify(ARQUIVOS_DA_LOJA), loja.nomes.join(", "));
+    const png = (nome) => { const b = readFileSync(join(RAIZ, "extensao-pontos", nome)); return { assinatura: b.subarray(1, 4).toString("latin1"), larg: b.readUInt32BE(16), alt: b.readUInt32BE(20) }; };
+    conferir("Loja: o manifesto declara ícones de 16, 48 e 128 px, e cada arquivo é um PNG desse tamanho dentro do zip",
+      Object.entries(loja.manifesto.icons || {}).length === 3 && Object.entries(loja.manifesto.icons).every(([tam, arq]) => loja.nomes.includes(arq) && png(arq).assinatura === "PNG" && png(arq).larg === Number(tam) && png(arq).alt === Number(tam)), JSON.stringify(loja.manifesto.icons));
+    conferir("Loja: o manifesto do pacote tem só as permissões esperadas (scripting e browsingData), sem todos os sites e sem a janela anônima",
+      JSON.stringify(loja.manifesto.permissions) === '["scripting","browsingData"]' && !JSON.stringify(loja.manifesto).includes("<all_urls>") && !("incognito" in loja.manifesto), JSON.stringify(loja.manifesto.permissions));
+
+    // Os links para o Lucas baixar o pacote e o material da loja (um cartão de arquivo na conversa não baixava no computador dele)
+    const comLogin = { cookie: `gf_sessao=${token}` };
+    for (const [rota, nome] of [["/extensao-pontos-loja.zip", "extensao-pontos-loja.zip"], ["/material-da-loja.zip", "material-da-loja.zip"]]) {
+      const fora = await baixar({}, rota);
+      conferir(`Loja: ${rota} sem sessão manda para o login e não entrega nada`, fora.status === 302 && fora.cab.Location === "/entrar" && fora.buf.length === 0, String(fora.status));
+      const dentro = await baixar(comLogin, rota);
+      conferir(`Loja: ${rota} com sessão baixa como anexo ${nome} (200, application/zip, sem cache)`,
+        dentro.status === 200 && dentro.cab["Content-Type"] === "application/zip" && dentro.cab["Content-Disposition"] === `attachment; filename="${nome}"` && /no-store/.test(dentro.cab["Cache-Control"]) && Number(dentro.cab["Content-Length"]) === dentro.buf.length && dentro.buf.length > 1000, JSON.stringify(dentro.cab));
+    }
+    const pacoteBaixado = await baixar(comLogin, "/extensao-pontos-loja.zip");
+    conferir("Loja: o link do pacote entrega o MESMO zip da loja (manifesto na raiz), byte a byte", Buffer.compare(pacoteBaixado.buf, zipParaALoja()) === 0);
+    const material = JSON.parse(execFileSync("python3", ["-c", `
+import sys, io, json, zipfile, hashlib
+z = zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))
+print(json.dumps({"ruim": z.testzip(), "nomes": z.namelist(), "pacote": hashlib.sha256(z.read("material-da-loja/1-enviar/extensao-pontos-loja.zip")).hexdigest(), "textos": z.read("material-da-loja/3-textos/LISTAGEM.md").decode("utf-8")[:40]}))
+`], { input: (await baixar(comLogin, "/material-da-loja.zip")).buf, encoding: "utf8" }));
+    conferir("Loja: o material baixado é íntegro e tem o pacote, o ícone, as capturas, a imagem promocional e os textos nas pastas 1, 2 e 3",
+      material.ruim === null && material.nomes.includes("material-da-loja/1-enviar/extensao-pontos-loja.zip") && material.nomes.includes("material-da-loja/2-imagens/icone-128.png") && material.nomes.includes("material-da-loja/2-imagens/promocional-440x280.jpg")
+      && material.nomes.filter((n) => /2-imagens\/captura-\d.*\.jpg$/.test(n)).length === 4 && material.nomes.includes("material-da-loja/3-textos/LISTAGEM.md") && /Publicar a extensão/.test(material.textos), material.nomes.join(", "));
+    conferir("Loja: o pacote DENTRO do material é o mesmo que o link do pacote entrega", material.pacote === createHash("sha256").update(zipParaALoja()).digest("hex"));
+    conferir("Loja: o material não leva dado da família (só imagens de exemplo e texto fixo)", zipDoMaterialDaLoja().length > 100000 && !zipDoMaterialDaLoja().includes(Buffer.from("Família Exemplo")));
+
+    // A política de privacidade é PÚBLICA (a loja exige um endereço aberto) e não tem dado da família
+    const publica = async (rota) => {
+      const req = Readable.from([]);
+      Object.assign(req, { method: "GET", url: rota, headers: {}, socket: { remoteAddress: "127.0.0.1" } });
+      const res = { status: 200, cab: {}, corpo: "", headersSent: false, writeHead(s, h) { this.status = s; Object.assign(this.cab, h || {}); }, setHeader() {}, end(b) { this.corpo = b ? String(b) : ""; } };
+      await app.tratar(req, res);
+      return res;
+    };
+    const politica = await publica("/privacidade-extensao");
+    conferir("Loja: a política de privacidade abre SEM login (200, HTML), diz o que a extensão acessa e o que não faz, e não traz e-mail nem nome de ninguém",
+      politica.status === 200 && /text\/html/.test(politica.cab["Content-Type"]) && /Política de privacidade/.test(politica.corpo) && /browsingData/.test(politica.corpo) && /não os guarda/.test(politica.corpo)
+      && /Uso Limitado/.test(politica.corpo) && !/@/.test(politica.corpo.replace(/<style[\s\S]*?<\/style>/, "")) && !/Lucas|Marina|Viola|Souza/.test(politica.corpo), String(politica.status));
+    await consultar("DELETE FROM sessoes WHERE usuario_id = $1", [usuario.id]);
+    await consultar("DELETE FROM usuarios WHERE id = $1", [usuario.id]);
+    await consultar("DELETE FROM pessoas WHERE id = $1", [pessoaDoLogin.id]);
+  }
+
+  // Pontos: o ACESSO (login e senha) de cada conta, cifrado (decisão do Lucas, 23/10/2026)
+  {
+    const http = await import(join(SERVIDOR, "src/http.mjs"));
+    const pontos = await import(join(SERVIDOR, "src/pontos.mjs"));
+    const requisitar = async (rota, cabecalhos = {}) => {
+      const req = Readable.from([]);
+      Object.assign(req, { method: "GET", url: rota, headers: cabecalhos, socket: { remoteAddress: "127.0.0.1" } });
+      const res = { status: 200, cab: {}, corpo: "", headersSent: false, writeHead(s, h) { this.status = s; Object.assign(this.cab, h || {}); }, setHeader() {}, end(b) { this.corpo = b ? String(b) : ""; } };
+      await app.tratar(req, res);
+      return res;
+    };
+    const pessoaA = await uma("INSERT INTO pessoas (nome, primeiro_nome) VALUES ('Dona Acesso', 'Dona') RETURNING id");
+    const pessoaB = await uma("INSERT INTO pessoas (nome, primeiro_nome) VALUES ('Outro Acesso', 'Outro') RETURNING id");
+    const usuarioA = await uma("INSERT INTO usuarios (pessoa_id, email, senha_hash) VALUES ($1, 'acesso@teste.exemplo', 'sem-login') RETURNING id", [pessoaA.id]);
+    const token = await http.criarSessao(usuarioA.id, { headers: {}, socket: { remoteAddress: "127.0.0.1" } });
+    const comSessao = { cookie: `gf_sessao=${token}`, "sec-fetch-site": "same-origin" };
+    const credencial = async (id, cab = comSessao) => { const r = await requisitar(`/api/pontos/credencial/${id}`, cab); return { status: r.status, cab: r.cab, corpo: r.corpo, json: r.corpo ? JSON.parse(r.corpo) : null }; };
+    const [progUm, progDois] = (await listar("pontos_programas")).map((d) => d.dados);
+    const SENHA = "S3nha!forte#Zé 123";
+    const CPF = "123.456.789-01";
+
+    // A máscara
+    conferir("Acesso: a máscara mostra os três do meio do CPF, o começo do e-mail e o começo e o fim do resto",
+      pontos.mascararLogin("123.456.789-01") === "•••.•••.789-••" && pontos.mascararLogin("12345678901") === "•••.•••.789-••" && pontos.mascararLogin("lucas@gmail.com") === "l•••@gmail.com"
+      && pontos.mascararLogin("123456789") === "1•••89" && pontos.mascararLogin("abc") === "•••");
+
+    // Criar a conta com o acesso
+    const c = await gravar("pontos_contas", "novo", { programaId: progUm.id, pessoaId: String(pessoaA.id), acesso: { login: CPF, senha: SENHA } });
+    let conta = (await achar("pontos_contas", c.id)).dados;
+    conferir("Acesso: a conta criada com login e senha diz que tem acesso e mostra o login mascarado", conta.temAcesso === true && conta.loginMascarado === "•••.•••.789-••", JSON.stringify(conta));
+    const tudoQueSai = JSON.stringify([await listar("pontos_contas"), await listar("pontos_saldos"), await listar("pontos_programas")]);
+    conferir("Acesso: nem o login nem a senha aparecem em NENHUMA coleção (nem o CPF, só a máscara)", !tudoQueSai.includes(SENHA) && !tudoQueSai.includes(CPF) && !tudoQueSai.includes("12345678901") && !("login" in conta) && !("senha" in conta) && !("acesso" in conta));
+    const bruto = (await consultar("SELECT login_cifrado, senha_cifrada, login_mascarado FROM pts_acessos WHERE conta_id = $1", [c.id])).rows[0];
+    const formato = /^[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/;
+    conferir("Acesso: no banco o login e a senha estão CIFRADOS (iv.tag.texto), e o texto puro não aparece em lugar nenhum da linha",
+      formato.test(bruto.login_cifrado) && formato.test(bruto.senha_cifrada) && !JSON.stringify(bruto).includes(SENHA) && !JSON.stringify(bruto).includes("789-01") && !JSON.stringify(bruto).includes("Zé"), Object.keys(bruto).join());
+    const outra2 = await gravar("pontos_contas", "novo", { programaId: progDois.id, pessoaId: String(pessoaA.id), acesso: { login: CPF, senha: SENHA } });
+    const bruto2 = (await consultar("SELECT login_cifrado, senha_cifrada FROM pts_acessos WHERE conta_id = $1", [outra2.id])).rows[0];
+    conferir("Acesso: a mesma senha em duas contas dá textos cifrados DIFERENTES (cada cifra tem o seu IV)", bruto.senha_cifrada !== bruto2.senha_cifrada && bruto.login_cifrado !== bruto2.login_cifrado);
+
+    // A rota que decifra
+    const lida = await credencial(c.id);
+    conferir("Acesso: a rota devolve o login e a senha certos, sem cache, para a página do app", lida.status === 200 && lida.json.login === CPF && lida.json.senha === SENHA && /no-store/.test(lida.cab["Cache-Control"]), String(lida.status));
+    const uso = (await consultar("SELECT usos, ultimo_uso_em FROM pts_acessos WHERE conta_id = $1", [c.id])).rows[0];
+    conferir("Acesso: cada uso fica contado (quantas vezes e quando)", uso.usos === 1 && !!uso.ultimo_uso_em && Date.now() - new Date(uso.ultimo_uso_em).getTime() < 60000, JSON.stringify(uso));
+    conferir("Acesso: sem sessão a rota não entrega nada (401)", (await credencial(c.id, { "sec-fetch-site": "same-origin" })).status === 401);
+    const deFora = await Promise.all(["cross-site", "same-site", "none"].map((o) => credencial(c.id, { ...comSessao, "sec-fetch-site": o })));
+    conferir("Acesso: pedido de outro site, de outro subdomínio ou digitado na barra de endereço é recusado (403) e não entrega nada",
+      deFora.every((r) => r.status === 403 && !r.corpo.includes(SENHA)), deFora.map((r) => r.status));
+    conferir("Acesso: as recusas não contam como uso", (await uma("SELECT usos FROM pts_acessos WHERE conta_id = $1", [c.id])).usos === 1);
+    const semAcesso = await gravar("pontos_contas", "novo", { programaId: progUm.id, pessoaId: String(pessoaB.id) });
+    conferir("Acesso: conta sem acesso guardado dá 404, e id que não é número não é rota", (await credencial(semAcesso.id)).status === 404 && (await credencial("abc")).status === 404);
+    await apagar("pontos_contas", semAcesso.id);
+
+    // Editar
+    await gravar("pontos_contas", c.id, { ...conta, observacao: "página antiga, sem falar do acesso" });
+    conferir("Acesso: editar a conta sem falar do acesso (página antiga) NÃO o apaga nem o troca", (await achar("pontos_contas", c.id)).dados.temAcesso === true && (await credencial(c.id)).json.senha === SENHA);
+    await gravar("pontos_contas", c.id, { ...conta, acesso: { login: "nova@exemplo.com", senha: "" } });
+    let depois = await credencial(c.id);
+    conferir("Acesso: trocar só o login (senha em branco) mantém a senha e atualiza a máscara", depois.json.login === "nova@exemplo.com" && depois.json.senha === SENHA && (await achar("pontos_contas", c.id)).dados.loginMascarado === "n•••@exemplo.com");
+    await gravar("pontos_contas", c.id, { ...conta, acesso: { login: "nova@exemplo.com", senha: "outra-senha-9" } });
+    depois = await credencial(c.id);
+    conferir("Acesso: trocar a senha grava a nova (e o uso continua contado)", depois.json.senha === "outra-senha-9" && (await uma("SELECT usos FROM pts_acessos WHERE conta_id = $1", [c.id])).usos === 4);
+    await gravar("pontos_contas", c.id, { ...conta, acesso: null });
+    conferir("Acesso: \"acesso: null\" REMOVE o acesso (a conta fica, sem acesso)", (await achar("pontos_contas", c.id)).dados.temAcesso === false && (await credencial(c.id)).status === 404 && (await uma("SELECT count(*)::int AS n FROM pts_acessos WHERE conta_id = $1", [c.id])).n === 0);
+    await gravar("pontos_contas", c.id, { ...conta, acesso: { login: CPF, senha: SENHA } });
+    conferir("Acesso: dá para pôr o acesso numa conta que já existia sem ele", (await achar("pontos_contas", c.id)).dados.temAcesso === true);
+
+    // Programa sem login com senha (o Shopping do Sicredi só entra por Google ou código por e-mail): não há acesso a guardar
+    const semSenha = (await listar("pontos_programas")).map((d) => d.dados).filter((p) => p.aceitaSenha === false);
+    const catalogoAtual = (await listar("pontos_programas")).map((d) => d.dados);
+    conferir("Catálogo: o Sicredi se chama só \"Sicredi\" e traz a nota de que entra pelo Google; a Gol (Smiles) está lá, em milhas, com a nota do código de verificação",
+      catalogoAtual.find((p) => p.chave === "sicredi")?.nome === "Sicredi" && /Google/.test(catalogoAtual.find((p) => p.chave === "sicredi")?.loginNota)
+      && catalogoAtual.find((p) => p.chave === "gol")?.unidade === "milhas" && /código de verificação/.test(catalogoAtual.find((p) => p.chave === "gol")?.loginNota) && catalogoAtual.every((p) => typeof p.loginNota === "string"),
+      catalogoAtual.map((p) => p.chave + ":" + p.nome));
+    conferir("Acesso: o catálogo diz quais programas aceitam login com senha (só o Sicredi não aceita)", (await listar("pontos_programas")).every((d) => typeof d.dados.aceitaSenha === "boolean") && semSenha.length === 1 && semSenha[0].chave === "sicredi", semSenha.map((p) => p.chave));
+    const sicredi = semSenha[0];
+    conferir("Acesso: guardar login e senha num programa que não entra com senha é recusado (400), com a explicação, e não cria a conta",
+      (await recusa("pontos_contas", "novo", { programaId: sicredi.id, pessoaId: String(pessoaB.id), acesso: { login: "a@b.com", senha: "x1" } })) === 400 && (await listar("pontos_contas")).every((d) => d.dados.programaId !== sicredi.id));
+    const contaSicredi = await gravar("pontos_contas", "novo", { programaId: sicredi.id, pessoaId: String(pessoaB.id) });
+    conferir("Acesso: a conta desse programa existe normalmente, só sem acesso (lê a sessão do Chrome); mandar acesso na edição também é recusado",
+      (await achar("pontos_contas", contaSicredi.id)).dados.temAcesso === false && (await recusa("pontos_contas", contaSicredi.id, { ...(await achar("pontos_contas", contaSicredi.id)).dados, acesso: { login: "a@b.com", senha: "x1" } })) === 400
+      && (await recusa("pontos_contas", contaSicredi.id, { ...(await achar("pontos_contas", contaSicredi.id)).dados, acesso: null })) === 200);
+    await apagar("pontos_contas", contaSicredi.id);
+
+    // Recusas
+    const novaBase = { programaId: progDois.id, pessoaId: String(pessoaB.id) };
+    const antes = (await listar("pontos_contas")).length;
+    conferir("Acesso: login sem senha na criação é recusado (400), e não cria a conta pela metade", (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: CPF } })) === 400 && (await listar("pontos_contas")).length === antes);
+    conferir("Acesso: senha sem login, login em branco ou acesso que não é objeto são recusados (400)",
+      (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { senha: SENHA } })) === 400 && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: "   ", senha: SENHA } })) === 400
+      && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: "lucas:123" })) === 400 && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: [CPF, SENHA] })) === 400);
+    conferir("Acesso: login com mais de 120 caracteres, senha com mais de 200 e caractere de controle são recusados",
+      (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: "a".repeat(121), senha: SENHA } })) === 400 && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: CPF, senha: "a".repeat(201) } })) === 400
+      && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: CPF, senha: "linha1\nlinha2" } })) === 400 && (await recusa("pontos_contas", "novo", { ...novaBase, acesso: { login: "a\u0000b", senha: SENHA } })) === 400);
+    conferir("Acesso: conta repetida com acesso é recusada (409) e NÃO troca o acesso da que já existe",
+      (await recusa("pontos_contas", "novo", { programaId: progUm.id, pessoaId: String(pessoaA.id), acesso: { login: "intruso", senha: "intruso" } })) === 409 && (await credencial(c.id)).json.login === CPF);
+    await gravar("pontos_contas", outra2.id, { ...(await achar("pontos_contas", outra2.id)).dados, acesso: null });
+    conferir("Acesso: editar sem acesso e mandar senha em branco numa conta que não o tem é recusado (400)", (await recusa("pontos_contas", outra2.id, { ...(await achar("pontos_contas", outra2.id)).dados, acesso: { login: CPF, senha: "" } })) === 400);
+
+    // Chave errada ou texto adulterado: o GCM recusa, sem vazar nada
+    await consultar("UPDATE pts_acessos SET senha_cifrada = 'AAAA.BBBB.CCCC' WHERE conta_id = $1", [c.id]);
+    const adulterado = await credencial(c.id);
+    conferir("Acesso: texto cifrado adulterado (ou chave trocada) dá 409 com mensagem em português, sem devolver lixo nem o conteúdo",
+      adulterado.status === 409 && /Digite o acesso/.test(adulterado.json.erro) && !adulterado.corpo.includes(CPF) && !adulterado.corpo.includes("AAAA"), adulterado.corpo);
+    await gravar("pontos_contas", c.id, { ...conta, acesso: { login: CPF, senha: SENHA } });
+    conferir("Acesso: digitar o acesso de novo conserta", (await credencial(c.id)).json.senha === SENHA);
+
+    // Apagar a conta leva o acesso; apagar a pessoa deixa a conta (e o acesso dela)
+    await apagar("pontos_contas", c.id);
+    await apagar("pontos_contas", outra2.id);
+    conferir("Acesso: apagar a conta apaga o acesso dela (nada de segredo órfão no banco)", (await uma("SELECT count(*)::int AS n FROM pts_acessos")).n === 0);
+    const dePessoa = await gravar("pontos_contas", "novo", { programaId: progUm.id, pessoaId: String(pessoaB.id), acesso: { login: "b@exemplo.com", senha: "b-senha-1" } });
+    await consultar("DELETE FROM pessoas WHERE id = $1", [pessoaB.id]);
+    conferir("Acesso: apagar a pessoa deixa a conta sem pessoa, e o acesso continua", (await achar("pontos_contas", dePessoa.id)).dados.pessoaId === "" && (await credencial(dePessoa.id)).json.senha === "b-senha-1");
+    await apagar("pontos_contas", dePessoa.id);
+    await consultar("DELETE FROM sessoes WHERE usuario_id = $1", [usuarioA.id]);
+    await consultar("DELETE FROM usuarios WHERE id = $1", [usuarioA.id]);
+    await consultar("DELETE FROM pessoas WHERE id = $1", [pessoaA.id]);
+    conferir("Acesso: nada sobra depois dos testes", (await uma("SELECT count(*)::int AS n FROM pts_acessos")).n === 0 && (await listar("pontos_contas")).length === 0);
+  }
 
   // migrar.mjs no modo DATABASE_URL: banco gerenciado, sem docker compose.
   await consultar("CREATE DATABASE gestao_migra");

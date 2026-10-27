@@ -21,6 +21,9 @@ import { estadoDaColeta } from "./dados.mjs";
 import { iniciarColeta, coletarEsperando, estadoDaColetaAgora } from "./coletor.mjs";
 import { backup, horasDesdeAColeta } from "./agenda.mjs";
 import { receberWebhook, CAMINHO_WEBHOOK } from "./webhook-pluggy.mjs";
+import { servirExtensao, servirPacoteDaLoja, servirMaterialDaLoja } from "./extensao.mjs";
+import { lerAcesso } from "./pontos.mjs";
+import * as chat from "./chat.mjs";
 
 // Na Vercel, a coleta que o botão "puxar agora" começa precisa continuar DEPOIS de a
 // resposta sair — `waitUntil` mantém a função viva até ela terminar. No VPS o
@@ -87,6 +90,9 @@ export async function tratar(req, res) {
     if (rota === "/entrar" && metodo === "POST") return await entrar(req, res);
     if (rota === "/sair" && metodo === "POST") return await sair(req, res);
     if (rota === "/saude") return json(res, { ok: true });
+    // A política de privacidade da extensão do Chrome: a Chrome Web Store exige um endereço PÚBLICO (a extensão lida com credenciais). É texto
+    // fixo, sem dado nenhum da família: por isso fica antes da sessão.
+    if (rota === "/privacidade-extensao" && metodo === "GET") return texto(res, readFileSync(join(WEB, "privacidade-extensao.html"), "utf8"), "text/html; charset=utf-8", { "Cache-Control": "public, max-age=3600" });
     // Cron (Vercel) ou gatilho externo: coleta e ESPERA terminar. Fica antes da
     // sessão de propósito — quem chama é a plataforma, não uma pessoa — e por isso
     // exige a senha do cron.
@@ -99,6 +105,9 @@ export async function tratar(req, res) {
     // sessão (quem chama é a Pluggy); a autenticação é o segredo no cabeçalho (webhook-pluggy.mjs).
     if (rota === CAMINHO_WEBHOOK && metodo === "POST") return await receberWebhook(req, res, { iniciarColeta, segurar: segurarExecucao });
     if (publico(rota) && estatico(res, rota)) return;
+    // A ponte do Chat IA (um processo do VPS que atende as perguntas com o Claude/ChatGPT do plano): fica antes da sessão como o cron,
+    // porque quem chama é uma máquina; a autenticação é a senha derivada da CHAVE_MESTRA (chat.mjs).
+    if (rota.startsWith("/api/chat/ponte/")) return await chat.rotasDaPonte(req, res, rota, metodo);
 
     // --- daqui para baixo, só com sessão ---
     const sessao = await sessaoDe(req);
@@ -110,11 +119,28 @@ export async function tratar(req, res) {
 
     if (rota === "/" && metodo === "GET") return texto(res, await paginaDoApp(), "text/html; charset=utf-8", { "Cache-Control": "no-store" });
     if (rota === "/db-servidor.js" && estatico(res, rota)) return;
+    // A extensão do Chrome que lê os pontos (botão "Baixar extensão do Chrome" da tela Pontos): atrás do login como tudo o que é do app.
+    if (metodo === "GET" && rota === "/extensao-pontos.zip") return servirExtensao(res);
+    // Para publicar a extensão na Chrome Web Store: o pacote que se envia e o material da listagem (imagens e textos). Também atrás do login.
+    if (metodo === "GET" && rota === "/extensao-pontos-loja.zip") return servirPacoteDaLoja(res);
+    if (metodo === "GET" && rota === "/material-da-loja.zip") return servirMaterialDaLoja(res);
+    // O login e a senha de UMA conta de pontos, decifrados para a leitura (a tela busca na hora e entrega à extensão). É a única rota que
+    // devolve esse segredo, e só para a PRÓPRIA página do app: o navegador diz de onde o pedido veio (`sec-fetch-site`), e qualquer
+    // coisa que não seja "same-origin" é recusada — inclusive navegar direto para o endereço (`none`).
+    const credencial = rota.match(/^\/api\/pontos\/credencial\/(\d+)$/);
+    if (credencial && metodo === "GET") {
+      const origem = req.headers["sec-fetch-site"];
+      if (origem && origem !== "same-origin") return erro(res, 403, "Pedido de outra origem.");
+      try { return json(res, await lerAcesso(credencial[1])); }
+      catch (e) { if (e.status) return erro(res, e.status, e.message); throw e; }
+    }
     // Código, CSS e dados da página separada (pagina.mjs → separar). Atrás do login como tudo o que é do app.
     if (metodo === "GET" && rota.startsWith("/c/") && await servirArquivoDoApp(req, res, rota)) return;
     if (metodo === "GET" && rota === "/api/dados.js") return await servirDados(req, res);
 
     if (rota === "/api/eu") return json(res, { email: sessao.email, nome: sessao.primeiro_nome });
+    // Chat IA: as conversas de quem está logado (cada um vê só as suas)
+    if (rota.startsWith("/api/chat/")) return await chat.rotasDaTela(req, res, rota, metodo, sessao);
     if (rota === "/api/estado") return json(res, { ...(await estadoDaColeta()), horasDesdeAColeta: await horasDesdeAColeta() });
     if (rota === "/api/backup" && metodo === "POST") {
       // O backup é um pg_dump para o disco do VPS. Na Vercel não há disco nem pg_dump:

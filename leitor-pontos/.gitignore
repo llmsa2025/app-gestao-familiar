@@ -1,0 +1,7 @@
+# Capturas de tela e relatórios de cada rodada (podem mostrar conta logada)
+saida/
+
+# Perfis do navegador: guardam a sessão de cada programa e pessoa. Nunca versionar.
+perfis/
+
+node_modules/

@@ -46,6 +46,8 @@ caminho **A**. Dá para trocar depois (é só restaurar um backup no outro lado)
    fazer quando algo para.
 5. **[Personalizar](06-personalizar.md)** — nome da família, categorias, o que é sempre
    seu para mudar.
+6. **[Opcionais: Pontos e Chat IA](07-opcionais-pontos-e-chat-ia.md)** — só se você quiser
+   ler o saldo de pontos pelo Chrome ou perguntar ao Claude/ChatGPT sobre os seus dados.
 
 ## Segredos: o que existe e onde mora
 

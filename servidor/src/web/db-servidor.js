@@ -43,8 +43,12 @@
   // Grupos, subgrupos e categorias se refletem entre si (renomear um grupo muda o texto nas categorias): as três são buscadas de novo. Mas só a que
   // foi GRAVADA avisa as telas à força; as outras avisam se mudaram — antes as três avisavam sempre, e toda gravação de categoria redesenhava
   // todas as telas três vezes.
-  const atualizarRelacionadas = (colecao) => ["grupos", "subgrupos", "categorias"].includes(colecao)
-    ? Promise.all(["grupos", "subgrupos", "categorias"].map((c) => atualizar(c, { forcar: c === colecao }))) : atualizar(colecao, { forcar: true });
+  // Pontos: gravar um saldo muda a conta (situação, última leitura, saldo mais recente) e gravar a conta pode apagar saldos; as duas andam juntas.
+  const RELACIONADAS = [["grupos", "subgrupos", "categorias"], ["pontos_contas", "pontos_saldos"]];
+  const atualizarRelacionadas = (colecao) => {
+    const grupo = RELACIONADAS.find((g) => g.includes(colecao));
+    return grupo ? Promise.all(grupo.map((c) => atualizar(c, { forcar: c === colecao }))) : atualizar(colecao, { forcar: true });
+  };
 
   // GRAVAÇÃO LEVE. Para as coleções em que uma gravação mexe só no próprio documento, o servidor devolve o documento gravado (`documento`)
   // ou o id apagado (`removido`) e a tela é avisada NA HORA, com o documento aplicado no lugar: sem buscar a coleção inteira de novo e

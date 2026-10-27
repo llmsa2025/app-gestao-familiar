@@ -1,0 +1,36 @@
+GESTÃO FAMÍLIA — LEITOR DE PONTOS (extensão do Chrome)
+
+O que faz
+  Quando você clica em "Atualizar" na tela Pontos do app, esta extensão abre o site do programa (Livelo, Azul, Sicredi,
+  LATAM Pass, Gol) numa aba, lê o seu saldo e entrega o número ao app. Se o site pedir login, a aba vem para a frente: você
+  entra (o Chrome preenche) e a leitura termina sozinha. Se a conta tem login e senha guardados no app, a extensão entra
+  sozinha quando o site pede.
+
+O que NÃO faz
+  Não guarda senha nem código. Só funciona na página do app e nos sites dos programas. Não lê o histórico do Chrome.
+  Não escolhe a conta do Google por você: no Sicredi, ela leva a aba até a escolha da conta do Google e você clica.
+
+Quando ela limpa dados do Chrome (e o quê)
+  A extensão confere QUEM está logado no site: o nome que o site mostra tem de ser o da pessoa dona da conta. Se estiver
+  logada outra pessoa (a Marina no Chrome do Lucas, por exemplo):
+    - conta SEM login e senha guardados: ela avisa "conta errada" e NÃO mexe em nada;
+    - conta COM login e senha guardados: ela apaga os cookies e o armazenamento local SÓ daquele programa (e do endereço de
+      login dele) e entra com a conta certa. Nenhum outro site é tocado.
+
+Código de verificação
+  Alguns sites mandam um código por e-mail ou telefone quando você entra num navegador novo. Nesse caso o app pergunta a
+  você qual canal usar e qual é o código, e você digita no app. Você pode pedir para não perguntar mais neste navegador.
+
+Como instalar (uma vez só)
+  1. Abra o zip e deixe a pasta "extensao-pontos" num lugar fixo (por exemplo, em Documentos). Não apague essa pasta
+     depois: o Chrome lê a extensão dela.
+  2. No Chrome, abra o endereço  chrome://extensions
+  3. Ligue "Modo do desenvolvedor" (canto superior direito).
+  4. Clique em "Carregar sem compactação" e escolha a pasta "extensao-pontos".
+  5. Abra o app, vá em Pontos. O aviso "Precisa da extensão do Chrome" some e o botão Atualizar liga.
+
+Se o Chrome mostrar a extensão com erro, ou o botão Atualizar continuar desligado: em chrome://extensions clique no
+botão de recarregar da extensão e recarregue a página do app (Cmd+R).
+
+Quem usa: cada pessoa pode instalar no Chrome dela. A extensão confere o nome da conta logada contra o titular da conta
+no app, então ler a conta errada deixou de ser um risco silencioso.

@@ -3,9 +3,11 @@
 // ESTRUTURA (a mesma de um fluxo de caixa de ERP):
 //   0 Saldo dos bancos em <hoje>   — o número real de cada conta, na coluna de hoje
 //   1 Entradas                      — por categoria
-//   2 Saídas                        — por categoria
-//   3.1 Resultado                   — entradas − saídas
-//   3.2 Saldo acumulado             — vem do saldo anterior e vai empurrando
+//   2 Saídas                        — por categoria; só o operacional (aporte não é gasto)
+//   3.1 Resultado operacional       — entradas − saídas
+//   3.2 Investimentos               — bloco à parte: aportes, resgates e o líquido (resgates − aportes)
+//   3.3 Variação do caixa           — resultado + investimentos + o que só mudou de bolso
+//   3.4 Saldo acumulado             — vem do saldo anterior e vai empurrando
 //
 // Colunas: "Anterior" (tudo antes do período) + um balde por dia, semana, mês ou
 // ano, conforme o agrupamento escolhido.
@@ -14,6 +16,11 @@
 // balde à frente mostra o previsto; o balde de hoje mostra as duas coisas, partido
 // no dia de hoje. Nada é contado duas vezes — o realizado já está dentro do saldo
 // do banco, e o previsto é só o que ainda vai acontecer.
+//
+// "Mostrar previsões" (caixa no topo, lembrada neste navegador): desmarcada, a tabela e os
+// números mostram só o REAL — o que o banco já lançou. O previsto some (registros, parcelas,
+// projetos e a conta vencida que ainda não saiu) e a coluna que está toda no futuro, sem nada
+// realizado dentro, deixa de existir.
 //
 // O saldo do banco entra UMA vez, como ponto de partida do acumulado. A linha 0 é
 // conferência: ela tem que bater com o acumulado até hoje.
@@ -74,8 +81,13 @@
   const hojeSP = diaSP(new Date().toISOString());
   const somaDias = (chave, n) => { const d = new Date(chave + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
+  // Mostrar previsões fica lembrado neste navegador (se der para guardar). Sem escolha guardada, mostra: é o que o Fluxo sempre fez.
+  const CHAVE_PREVISOES = "gf-fluxo-previsoes";
+  const lerPrevisoes = () => { try { return localStorage.getItem(CHAVE_PREVISOES) !== "0"; } catch (e) { return true; } };
+  const guardarPrevisoes = (ligadas) => { try { localStorage.setItem(CHAVE_PREVISOES, ligadas ? "1" : "0"); } catch (e) { /* sem armazenamento: vale só nesta abertura */ } };
+
   const estado = {
-    periodo: "ano-completo", agrupamento: "mensal", de: "", ate: "", pessoa: "",
+    periodo: "ano-completo", agrupamento: "mensal", de: "", ate: "", pessoa: "", previsoes: lerPrevisoes(),
     vinculos: {}, depara: {}, classificacoes: {}, nomes: {}, memoria: {}, recorrentes: [], dividas: null,
     investimentos: { ativos: [], vinculos: {} },
     emprestimos: { dividas: [], vinculos: {} },
@@ -109,11 +121,14 @@
   //     extrato e a pessoa vinculou ao projeto aparece no realizado (ver montar()).
   // A previsão mora no tela-comum.js: o Dash mostra o MESMO número no gráfico de
   // provisão de caixa (R5 — um cálculo por número).
+  // Projeto é previsão: sem "Mostrar previsões", a caixa "Incluir projetos" não vale (e fica desligada na tela).
+  const comProjetos = () => estado.previsoes && estado.incluirProjetos;
   function previstos(de, ate) {
+    if (!estado.previsoes) return [];
     return window.PREVISAO.entre(de, ate, {
       recorrentes: estado.recorrentes,
       dividas: estado.dividas,
-      projetos: estado.incluirProjetos ? estado.projetos : [],
+      projetos: comProjetos() ? estado.projetos : [],
       pessoa: estado.pessoa,
     });
   }
@@ -148,22 +163,25 @@
   // ---------------------------------------------------------------------------
   // Agregação
   // ---------------------------------------------------------------------------
-  const daConta = (l) => {
+  const daContaBancaria = (l) => {
     const conta = contaPorIndice[l.c];
     if (!conta || conta.cartao || l.x === 1) return null;
     if (!window.PESSOAS.ehDaPessoa(window.PESSOAS.dono(conta), estado.pessoa)) return null;
     return conta;
   };
+  // Pendente no banco = agendado, ainda não saiu (nem entrou): vale o que foi PAGO. O débito da fatura do
+  // Sicredi (R$ 2.078,42) ficou agendado e o Lucas pagou só o mínimo (R$ 815): contar o agendado dobrava a fatura.
+  const daConta = (l) => (l.st === 1 ? null : daContaBancaria(l));
   const categoriaDe = (l) => window.CLASSIFICACAO.categoriaDe(l, estado);
 
   function montar() {
     const [inicio, fim] = intervalo();
-    const baldes = baldesNoIntervalo(inicio, fim);
-    const conjunto = new Set(baldes);
-    const grupos = { receita: new Map(), despesa: new Map() };
+    const todasAsColunas = baldesNoIntervalo(inicio, fim);
+    const conjunto = new Set(todasAsColunas);
+    // `investimento`: aportes e resgates, num bloco à parte. Mexem no saldo, mas não são receita nem gasto.
+    const grupos = { receita: new Map(), despesa: new Map(), investimento: new Map() };
     const transferencias = {}; // só as que têm as duas pernas: sai de uma conta e entra em outra
     const reembolsos = {};     // cartão corporativo e o que a empresa devolve
-    const devolucoes = {};     // resgates de investimento: dinheiro que volta, não é receita
     const creditos = {};       // dinheiro que um empréstimo depositou: é dívida, não é receita
     const itensReembolso = {};
     const linhas = [];
@@ -208,13 +226,12 @@
         (itensReembolso[balde] ??= []).push(l);
         continue;
       }
-      // Resgate é devolução de caixa: entra no saldo, não em Entradas. Aporte segue sendo saída,
-      // com o nome do aporte mesmo quando a categoria do lançamento é outra (foi vinculado).
+      // Aporte e resgate (decisão de 14/10, a pedido do usuário): mexem no saldo, mas não são gasto nem receita.
+      // Os dois vão para o bloco Investimentos, que mostra o líquido (resgates − aportes), em vez de o aporte
+      // ficar em Saídas e o resgate de fora — assimetria que deixava o Resultado negativo mesmo com resgate.
       const mov = window.CLASSIFICACAO.movimentoDePatrimonio(l, estado, categoria);
-      if (mov === "resgate") {
-        devolucoes[balde] = Math.round(((devolucoes[balde] || 0) + l.v) * 100) / 100;
-        continue;
-      }
+      if (mov === "resgate") { guardar("investimento", "Resgates", balde, Math.abs(l.v), l, false); continue; }
+      if (mov === "aporte") { guardar("investimento", "Aportes", balde, Math.abs(l.v), l, false); continue; }
       if (mov === "credito") {
         creditos[balde] = Math.round(((creditos[balde] || 0) + l.v) * 100) / 100;
         continue;
@@ -224,13 +241,12 @@
       // na mesma coluna (`dia` e `balde` já foram calculados). É só trocar de linha: o dinheiro é o mesmo e o saldo não muda.
       // Fica DEPOIS dos desvios acima de propósito: transferência, reembolso, resgate e crédito continuam neutros mesmo que
       // alguém os tenha vinculado, senão um resgate vinculado viraria receita.
-      const doProjeto = estado.incluirProjetos ? estado.projetosVinculos[window.MEMORIA.chaveLancamento(l)] : null;
+      const doProjeto = comProjetos() ? estado.projetosVinculos[window.MEMORIA.chaveLancamento(l)] : null;
       if (doProjeto) {
         guardar(l.v > 0 ? "receita" : "despesa", PREFIXO_PROJETO + doProjeto.projeto, balde, Math.abs(l.v), l, false);
         continue;
       }
-      const rotulo = mov === "aporte" && window.CATEGORIAS.naturezaDe(categoria) !== "investimento" ? window.CLASSIFICACAO.APORTE : categoria;
-      guardar(l.v > 0 ? "receita" : "despesa", rotulo, balde, Math.abs(l.v), l, false);
+      guardar(l.v > 0 ? "receita" : "despesa", categoria, balde, Math.abs(l.v), l, false);
     }
 
     // Previsto: de amanhã em diante, dentro do período
@@ -247,16 +263,17 @@
         (itensReembolso[balde] ??= []).push(item);
         continue;
       }
-      if (p.resgate) { devolucoes[balde] = Math.round(((devolucoes[balde] || 0) + item.v) * 100) / 100; continue; }
+      if (p.resgate) { guardar("investimento", "Resgates", balde, p.valor, item, true); continue; }
+      if (p.aporte) { guardar("investimento", "Aportes", balde, p.valor, item, true); continue; }
       guardar(p.grupo, p.categoria, balde, p.valor, item, true);
     }
 
     // Com a caixa marcada o grupo Projetos existe sempre, mesmo vazio (igual ao DRE): sem isso, clicar
     // não muda nada na tela e parece defeito. O que ficou de fora vem dito na nota do grupo.
-    const avisoProjetos = estado.incluirProjetos ? avisosDeProjeto(dePrevisto) : null;
+    const avisoProjetos = comProjetos() ? avisosDeProjeto(dePrevisto) : null;
     // O grupo lista TODOS os projetos em andamento, tenham ou não valor nas colunas do período (uma linha zerada diz que o projeto
     // existe e que o que ele pesa está em outro período). Só quem tem realizado vinculado, como um concluído, entra por esse caminho.
-    if (estado.incluirProjetos) {
+    if (comProjetos()) {
       for (const p of estado.projetos) {
         const categoria = PREFIXO_PROJETO + p.nome;
         if (!grupos.despesa.has(categoria)) grupos.despesa.set(categoria, { categoria, projeto: true, porBalde: {}, itens: {}, previstoEm: {}, total: 0 });
@@ -288,7 +305,28 @@
     }
     anterior = Math.round(anterior * 100) / 100;
 
-    return { inicio, fim, baldes, grupos, linhas, transferencias, reembolsos, devolucoes, creditos, itensReembolso, anterior, saldoHoje, contasDoFiltro, deslocados, avisoProjetos };
+    // Só o real: a coluna que começa depois de hoje e não tem nada realizado dentro (o que o banco já lançou e conta
+    // lá — o salário de ciclo que cai dia 29 e é do mês seguinte) não existe. Quem tem algo, fica; a coluna vazia
+    // não mexe no saldo acumulado (variação zero), então tirá-la não muda nenhum número das outras.
+    const temRealizado = (b) => !!(transferencias[b] || reembolsos[b] || creditos[b]) ||
+      Object.values(grupos).some((g) => [...g.values()].some((c) => c.porBalde[b]));
+    // "Começa depois de hoje" olha o pedaço da coluna que está DENTRO do período: "Próximos 30d" começa amanhã, e a coluna
+    // do mês corrente (que começou no dia 1) só tem futuro dentro da janela.
+    const todaNoFuturo = (b) => (inicio && inicio > inicioDoBalde(b) ? inicio : inicioDoBalde(b)) > hojeSP;
+    const baldes = estado.previsoes ? todasAsColunas : todasAsColunas.filter((b) => !todaNoFuturo(b) || temRealizado(b));
+
+    // O que o banco mostra como agendado (débito pendente) e ficou FORA de tudo acima. Se ele sair, o saldo cai e nenhuma
+    // coluna previu: o aviso diz quanto é, no mesmo critério de "fora R$ x agendado no banco" de Registros (só débitos).
+    const agendado = { valor: 0, qtd: 0 };
+    for (const l of registros) {
+      if (l.st !== 1 || !(l.v < 0) || !daContaBancaria(l)) continue;
+      const dia = diaSP(l.d);
+      if ((inicio && dia < inicio) || (fim && dia > fim)) continue;
+      agendado.valor = Math.round((agendado.valor + Math.abs(l.v)) * 100) / 100;
+      agendado.qtd++;
+    }
+
+    return { inicio, fim, baldes, soNoFuturo: !!todasAsColunas.length && !baldes.length, agendado, grupos, linhas, transferencias, reembolsos, creditos, itensReembolso, anterior, saldoHoje, contasDoFiltro, deslocados, avisoProjetos };
   }
 
   // ---------------------------------------------------------------------------
@@ -302,7 +340,7 @@
   }
 
   function desenhar() {
-    const { inicio, fim, baldes, grupos, transferencias, reembolsos, devolucoes, creditos, anterior, saldoHoje, contasDoFiltro, deslocados, avisoProjetos } = montar();
+    const { inicio, fim, baldes, soNoFuturo, agendado, grupos, transferencias, reembolsos, creditos, anterior, saldoHoje, contasDoFiltro, deslocados, avisoProjetos } = montar();
     const ordenar = window.CLASSIFICACAO.compararCategorias;
     const receitas = [...grupos.receita.values()].sort(ordenar);
     const despesas = [...grupos.despesa.values()].sort(ordenar);
@@ -311,35 +349,64 @@
     const totalDespesas = despesas.reduce((s, c) => s + c.total, 0);
     const resultado = (b) => Math.round((soma(receitas, b) - soma(despesas, b)) * 100) / 100;
 
+    // Investimentos: aportes e resgates, à parte do resultado. O líquido (resgates − aportes) é o que entra na variação do caixa.
+    const aportesL = grupos.investimento.get("Aportes");
+    const resgatesL = grupos.investimento.get("Resgates");
+    const aporteB = (b) => (aportesL ? aportesL.porBalde[b] || 0 : 0);
+    const resgateB = (b) => (resgatesL ? resgatesL.porBalde[b] || 0 : 0);
+    const liquidoB = (b) => Math.round((resgateB(b) - aporteB(b)) * 100) / 100;
+    const totalAportes = aportesL ? aportesL.total : 0;
+    const totalResgates = resgatesL ? resgatesL.total : 0;
+    const totalLiquido = Math.round((totalResgates - totalAportes) * 100) / 100;
+    // Variação do caixa: tudo o que mexeu no saldo — resultado + investimentos + o que só mudou de bolso
+    const variacao = (b) => Math.round((resultado(b) + liquidoB(b) + (transferencias[b] || 0) + (reembolsos[b] || 0) + (creditos[b] || 0)) * 100) / 100;
+
     // Saldo acumulado: parte do anterior e vai empurrando, balde a balde
     const acumulado = {};
     let corrente = anterior;
     for (const b of baldes) {
-      corrente = Math.round((corrente + resultado(b) + (transferencias[b] || 0) + (reembolsos[b] || 0) + (devolucoes[b] || 0) + (creditos[b] || 0)) * 100) / 100;
+      corrente = Math.round((corrente + variacao(b)) * 100) / 100;
       acumulado[b] = corrente;
     }
     const fimDoPeriodo = baldes.length ? acumulado[baldes[baldes.length - 1]] : anterior;
     const baldeDeHoje = baldes.find((b) => inicioDoBalde(b) <= hojeSP && fimDoBalde(b) >= hojeSP);
     // Primeiro balde à frente em que o dinheiro acaba. Se já está negativo hoje, não
     // é previsão — é o presente, e quem diz isso é o card do saldo.
-    const noVermelho = saldoHoje < 0 ? null : baldes.find((b) => fimDoBalde(b) > hojeSP && acumulado[b] < 0);
+    // (só existe com previsões: sem elas não há "à frente" para olhar)
+    const noVermelho = saldoHoje < 0 || !estado.previsoes ? null : baldes.find((b) => fimDoBalde(b) > hojeSP && acumulado[b] < 0);
+    const totalVariacao = Math.round(baldes.reduce((t, b) => t + variacao(b), 0) * 100) / 100;
+    // O que sobra da conta: transferência sem par, reembolso e empréstimo recebido (o que só mudou de bolso)
+    const totalResultado = Math.round((totalReceitas - totalDespesas) * 100) / 100;
+    const deBolso = Math.round((totalVariacao - totalResultado - totalLiquido) * 100) / 100;
 
+    const infoI = (chave, titulo) => '<span class="info" data-info="' + chave + '" role="button" tabindex="0" title="' + titulo + '">i</span>';
+    const sinalado = (v) => (v > 0 ? "+" : "") + brl.format(v);
     $("fluxo-resumo").innerHTML =
       '<div><dt>Saldo hoje nas contas</dt><dd class="' + (saldoHoje < 0 ? "neg" : "pos") + '">' + brl.format(saldoHoje) + "</dd></div>" +
       '<div><dt>Entradas no período</dt><dd class="pos">' + brl.format(totalReceitas) + "</dd></div>" +
-      "<div><dt>Saídas no período</dt><dd>" + brl.format(totalDespesas) + "</dd></div>" +
-      '<div><dt>Resultado do período</dt><dd class="' + (totalReceitas - totalDespesas < 0 ? "neg" : "pos") + '">' + brl.format(totalReceitas - totalDespesas) + "</dd></div>" +
+      "<div><dt>Saídas no período" + infoI("saidas", "O que entra em Saídas") + "</dt><dd>" + brl.format(totalDespesas) + "</dd></div>" +
+      '<div><dt>Resultado do período' + infoI("resultado", "O que é o resultado") + '</dt><dd class="' + (totalReceitas - totalDespesas < 0 ? "neg" : "pos") + '">' + brl.format(totalReceitas - totalDespesas) + "</dd></div>" +
+      (totalAportes || totalResgates
+        ? '<div><dt>Investimentos' + infoI("investimentos", "O que é o bloco Investimentos") + '</dt><dd class="' + (totalLiquido < 0 ? "neg" : "pos") + '">' + sinalado(totalLiquido) + '</dd><span class="meta">resgates ' + brl.format(totalResgates) + " − aportes " + brl.format(totalAportes) + "</span></div>"
+        : "") +
+      // O que o caixa de fato fez no período: resultado + investimentos (resgates − aportes) + o que só mudou de bolso.
+      // O Resultado sozinho pode ser negativo e o caixa não — quando o buraco foi coberto por resgate.
+      '<div><dt>Variação do caixa' + infoI("variacao", "O que é a variação do caixa") + '</dt><dd class="' + (totalVariacao < 0 ? "neg" : "pos") + '">' + sinalado(totalVariacao) + '</dd><span class="meta">resultado ' + sinalado(totalResultado) + " · investimentos " + sinalado(totalLiquido) + (deBolso ? " · de bolso " + sinalado(deBolso) : "") + "</span></div>" +
       '<div><dt>Saldo ao fim do período</dt><dd class="' + (fimDoPeriodo < 0 ? "neg" : "pos") + '">' + brl.format(fimDoPeriodo) + "</dd></div>" +
       (noVermelho ? '<div><dt>Fica no vermelho em</dt><dd class="neg">' + rotuloBalde(noVermelho) + "</dd></div>" : "");
 
     $("fluxo-periodo-texto").textContent =
       (inicio || fim ? (inicio === fim ? diaBR(inicio) : (inicio ? diaBR(inicio) : "início") + " a " + (fim ? diaBR(fim) : "hoje")) : "todo o período") +
       (estado.pessoa ? " · " + window.PESSOAS.rotulo(estado.pessoa) : " · todas as pessoas") +
+      (estado.previsoes ? "" : " · só o realizado (previsões desligadas)") +
+      (agendado.qtd ? " · fora da soma: " + brl.format(agendado.valor) + " agendado no banco (" + agendado.qtd + " débito" + (agendado.qtd > 1 ? "s" : "") + ", ainda não saiu)" : "") +
       (deslocados ? " · " + deslocados + " lançamento(s) contam no mês da competência, não no do banco (ciclo da categoria)" : "") +
       (baldes.length >= MAX_BALDES ? " · mostrando as primeiras " + MAX_BALDES + " colunas; diminua o período" : "");
 
     if (!baldes.length) {
-      $("fluxo-tabela").innerHTML = '<p class="vazio">Escolha um período para ver o fluxo.</p>';
+      $("fluxo-tabela").innerHTML = soNoFuturo
+        ? '<p class="vazio">Este período está todo no futuro e as previsões estão desligadas. Marque <strong>Mostrar previsões</strong> para ver o que está previsto.</p>'
+        : '<p class="vazio">Escolha um período para ver o fluxo.</p>';
       return;
     }
 
@@ -408,17 +475,34 @@
     const linhaTransferencia = linhaMovimento("Transferências entre as suas contas", transferencias, "com as duas pernas: só muda de bolso");
     const linhaReembolso = linhaMovimento("Reembolso", reembolsos, "cartão e devolução da empresa: sai e volta, não é entrada nem saída");
 
-    const linhaDevolucao = linhaMovimento("Resgates de investimento", devolucoes, "o dinheiro volta para a conta: entra no saldo, mas não é receita");
-
     const linhaCredito = linhaMovimento("Empréstimos recebidos", creditos, "o crédito do empréstimo entra no saldo, mas é dívida: não é receita");
 
     const linhaResultado =
-      '<tr class="resultado"><td>Resultado (entradas − saídas)</td>' + vazia +
+      '<tr class="resultado"><td>Resultado (entradas − saídas, sem investimentos)' + infoI("resultado", "O que é o resultado") + '</td>' + vazia +
       baldes.map((b) => '<td class="num ' + (resultado(b) < 0 ? "neg" : "pos") + '"><strong>' + brl.format(resultado(b)) + "</strong></td>").join("") +
       '<td class="num ' + (totalReceitas - totalDespesas < 0 ? "neg" : "pos") + '"><strong>' + brl.format(totalReceitas - totalDespesas) + "</strong></td></tr>";
 
+    // Investimentos: aportes (−) e resgates (+) num bloco só, com o líquido na linha do título. Cada valor abre os lançamentos.
+    const linhaInvestimentos = !(totalAportes || totalResgates) ? "" : (() => {
+      const fechado = !!estado.recolhidos.investimentos;
+      const titulo = '<tr class="bloco-titulo"><td>' + seta("investimentos") + "Investimentos" + infoI("investimentos", "O que é o bloco Investimentos") +
+        '<span class="meta">resgates − aportes: mexe no saldo, mas não é receita nem gasto</span></td>' + vazia +
+        baldes.map((b) => '<td class="num ' + (liquidoB(b) < 0 ? "neg" : "") + '">' + (liquidoB(b) ? sinalado(liquidoB(b)) : "—") + "</td>").join("") +
+        '<td class="num ' + (totalLiquido < 0 ? "neg" : "") + '"><strong>' + sinalado(totalLiquido) + "</strong></td></tr>";
+      const filha = (nome, chave, dica, lista, sinal, classe) => !lista ? "" :
+        "<tr" + (fechado ? " hidden" : "") + "><td>" + nome + infoI(chave, dica) + "</td>" + vazia +
+        baldes.map((b) => celula(sinal * (lista.porBalde[b] || 0), "investimento", nome, b, classe, lista.previstoEm[b])).join("") +
+        '<td class="num"><strong>' + (sinal < 0 ? "" : "+") + brl.format(sinal * lista.total) + "</strong></td></tr>";
+      return titulo + filha("Aportes", "aportes", "O que são aportes", aportesL, -1, "") + filha("Resgates", "resgates", "O que são resgates", resgatesL, 1, "pos");
+    })();
+
+    const linhaVariacao =
+      '<tr class="resultado"><td>Variação do caixa' + infoI("variacao", "O que é a variação do caixa") + '<span class="meta">resultado + investimentos + o que só mudou de bolso</span></td>' + vazia +
+      baldes.map((b) => '<td class="num ' + (variacao(b) < 0 ? "neg" : "pos") + '"><strong>' + brl.format(variacao(b)) + "</strong></td>").join("") +
+      '<td class="num ' + (totalVariacao < 0 ? "neg" : "pos") + '"><strong>' + brl.format(totalVariacao) + "</strong></td></tr>";
+
     const linhaAcumulado =
-      '<tr class="resultado"><td>Saldo acumulado<span class="meta">o anterior mais o resultado de cada coluna</span></td>' +
+      '<tr class="resultado"><td>Saldo acumulado' + infoI("acumulado", "O que é o saldo acumulado") + '<span class="meta">o anterior mais a variação do caixa de cada coluna</span></td>' +
       '<td class="num ' + (anterior < 0 ? "neg" : "") + '"><strong>' + brl.format(anterior) + "</strong></td>" +
       baldes.map((b) => {
         const v = acumulado[b];
@@ -434,9 +518,10 @@
       (despesas.length || (avisoProjetos && avisoProjetos.texto) ? bloco("Saídas", despesas, "despesa", "saidas", avisoProjetos) : "") +
       linhaTransferencia +
       linhaReembolso +
-      linhaDevolucao +
       linhaCredito +
       linhaResultado +
+      linhaInvestimentos +
+      linhaVariacao +
       linhaAcumulado +
       "</tbody></table></div></div>");
   }
@@ -446,7 +531,7 @@
   // ---------------------------------------------------------------------------
   function abrirDetalhe(grupo, categoria, balde) {
     const { grupos } = montar();
-    const alvo = grupos[grupo === "receita" ? "receita" : "despesa"].get(categoria);
+    const alvo = grupos[grupo === "receita" ? "receita" : grupo === "investimento" ? "investimento" : "despesa"].get(categoria);
     // O lançamento de uma linha de projeto diz de qual projeto é (em vez da origem da categoria, que ele não usa mais).
     const origem = categoria.startsWith(PREFIXO_PROJETO) ? () => "projeto: " + categoria.slice(PREFIXO_PROJETO.length) : undefined;
     window.DETALHE.abrir(categoria + " · " + rotuloBalde(balde), (alvo && alvo.itens[balde]) || [], estado, contaPorIndice, { competencia: true, origem });
@@ -485,7 +570,37 @@
   $("fluxo-ate").addEventListener("change", (e) => { estado.ate = e.target.value; desenhar(); });
   $("fluxo-pessoa").addEventListener("change", (e) => { estado.pessoa = e.target.value; desenhar(); });
   $("fluxo-projetos").addEventListener("change", (e) => { estado.incluirProjetos = e.target.checked; desenhar(); });
+  // Sem previsões, "Incluir projetos" não tem o que incluir: a caixa fica desligada (e lembra a escolha de quando voltar).
+  const aplicarPrevisoes = () => {
+    $("fluxo-previsoes").checked = estado.previsoes;
+    $("fluxo-projetos").disabled = !estado.previsoes;
+    $("fluxo-projetos").title = estado.previsoes ? "" : "Projeto é previsão: marque \"Mostrar previsões\" para incluir";
+  };
+  $("fluxo-previsoes").addEventListener("change", (e) => { estado.previsoes = e.target.checked; guardarPrevisoes(estado.previsoes); aplicarPrevisoes(); desenhar(); });
+  aplicarPrevisoes();
+  // O "i" ao lado de cada linha nova: uma frase curta, ancorada nele (a mesma caixinha do DRE)
+  const DICAS = {
+    saidas: "<strong>Saídas</strong> — o que saiu para pagar contas e gastos. <strong>Não inclui</strong> o dinheiro que foi para investimento (aportes): ele aparece no bloco Investimentos, mais abaixo.",
+    resultado: "<strong>Resultado</strong> — entradas menos saídas, <strong>sem investimentos</strong>. Diz se a casa gastou mais do que ganhou. Aportes e resgates ficam de fora, como no DRE. Se ele fechou negativo e você cobriu com resgate, o caixa não caiu: quem mostra isso é a <strong>Variação do caixa</strong>.",
+    investimentos: "<strong>Investimentos</strong> — o que foi para investimentos (aportes) e o que voltou (resgates). O número é <strong>resgates − aportes</strong>: positivo, voltou mais do que foi. Mexe no saldo, mas não é receita nem gasto.",
+    aportes: "<strong>Aportes</strong> — dinheiro que saiu da conta para um investimento. Não é gasto: virou patrimônio. Clique no valor para ver os lançamentos.",
+    resgates: "<strong>Resgates</strong> — dinheiro que voltou de um investimento para a conta. Não é receita: já era seu. Clique no valor para ver os lançamentos.",
+    variacao: "<strong>Variação do caixa</strong> — tudo o que mexeu no saldo: resultado + investimentos (resgates − aportes) + o que só mudou de bolso (transferências, reembolsos, empréstimos recebidos).",
+    acumulado: "<strong>Saldo acumulado</strong> — o saldo anterior mais a variação do caixa de cada coluna. Na coluna de hoje, bate com o saldo que o banco mandou.",
+  };
+  const abrirInfo = (alvo) => window.DICA.mostrar(alvo, DICAS[alvo.dataset.info] || "");
+  $("fluxo-resumo").addEventListener("click", (e) => { const info = e.target.closest("[data-info]"); if (info) abrirInfo(info); });
+  $("fluxo-tabela").addEventListener("keydown", (e) => {
+    const info = e.target.closest("[data-info]");
+    if (info && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrirInfo(info); }
+  });
+  $("fluxo-resumo").addEventListener("keydown", (e) => {
+    const info = e.target.closest("[data-info]");
+    if (info && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrirInfo(info); }
+  });
   $("fluxo-tabela").addEventListener("click", (e) => {
+    const info = e.target.closest("[data-info]");
+    if (info) { abrirInfo(info); return; }
     const recolher = e.target.closest("button[data-recolher]");
     if (recolher) {
       const id = recolher.dataset.recolher;

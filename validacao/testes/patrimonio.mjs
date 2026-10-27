@@ -2,11 +2,13 @@
 //
 //   · resgate vinculado a um investimento é devolução de caixa — sai de "Entradas" (não é receita),
 //     mas o SALDO continua o mesmo (o dinheiro voltou para a conta);
-//   · aporte continua sendo saída de caixa (decisão de 17/09), mas não é despesa no DRE.
+//   · aporte também sai de "Saídas" (decisão de 14/10; antes, de 17/09, ficava nelas): não é gasto. Fluxo, Dash e
+//     Registros mostram aportes e resgates à parte (Fluxo: bloco Investimentos; Dash e Registros: um card), e o DRE
+//     já os deixava fora do resultado.
 //
 // A conferência que mais importa é a do saldo: vincular um lançamento a um investimento NUNCA pode
 // mudar o saldo acumulado do Fluxo (R1). Se mudasse, o app estaria inventando ou escondendo dinheiro.
-import { gerarPreview, abrir, conferir, fechar, cards, card, numero, perto, brl } from "./util.mjs";
+import { gerarPreview, abrir, conferir, fechar, cards, card, numero, perto, brl, linha, valor } from "./util.mjs";
 
 const caminho = gerarPreview();
 const agora = "2026-09-26T15:00:00Z";
@@ -42,7 +44,15 @@ const lerFluxo = async () => {
   await ir("fluxo");
   const c = await cards(pagina, "fluxo-resumo");
   const tabela = await pagina.$eval("#fluxo-tabela", (e) => e.innerText);
-  return { entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")), saldoFim: numero("saldo fim", card(c, "Saldo ao fim do período")), tabela };
+  const num = (t) => { const v = valor(t); return v === null ? 0 : v; };
+  const acumulado = await linha(pagina, "#fluxo-tabela", "Saldo acumulado");
+  const variacao = await linha(pagina, "#fluxo-tabela", "Variação do caixa");
+  return {
+    entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")), saldoFim: numero("saldo fim", card(c, "Saldo ao fim do período")),
+    // o card Investimentos (resgates − aportes) só existe quando há aporte ou resgate no período
+    inv: card(c, "Investimentos") === undefined ? 0 : numero("investimentos", card(c, "Investimentos")),
+    anterior: num(acumulado[1]), variacaoTotal: num(variacao[variacao.length - 1]), tabela,
+  };
 };
 const lerDre = async () => {
   await ir("dre");
@@ -53,7 +63,10 @@ const lerDre = async () => {
 const lerDash = async () => {
   await ir("resumo");
   const c = await cards(pagina, "dash-caixa");
-  return { entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")) };
+  return {
+    entradas: numero("entradas", card(c, "Entradas no período")), saidas: numero("saídas", card(c, "Saídas no período")),
+    inv: card(c, "Investimentos no período") === undefined ? 0 : numero("investimentos", card(c, "Investimentos no período")),
+  };
 };
 
 // Configura os três períodos uma vez (a escolha é guardada por tela)
@@ -65,7 +78,7 @@ await ir("resumo"); await periodo("dash");
 // Antes de vincular
 // ---------------------------------------------------------------------------
 const f0 = await lerFluxo(), d0 = await lerDre(), h0 = await lerDash();
-conferir("Antes: o Fluxo não tem a linha de resgates", !/Resgates de investimento/.test(f0.tabela));
+conferir("Antes: a linha solta \"devolução de caixa\" não existe mais (virou o bloco Investimentos)", !/devolução de caixa/.test(f0.tabela));
 
 // ---------------------------------------------------------------------------
 // Vincula o crédito (resgate) e o débito (aporte) a um investimento
@@ -78,10 +91,13 @@ await esperar(700);
 const R = casos.resgate.v, A = Math.abs(casos.aporte.v);
 const f1 = await lerFluxo();
 conferir("Fluxo: o resgate sai de Entradas (não é receita)", perto(f0.entradas - f1.entradas, R), `${brl(f0.entradas)} → ${brl(f1.entradas)} · resgate ${brl(R)}`);
-conferir("Fluxo: o aporte continua em Saídas (decisão de 17/09)", perto(f1.saidas, f0.saidas), `${brl(f0.saidas)} → ${brl(f1.saidas)}`);
+conferir("Fluxo: o aporte sai de Saídas (não é gasto)", perto(f0.saidas - f1.saidas, A), `${brl(f0.saidas)} → ${brl(f1.saidas)} · aporte ${brl(A)}`);
+conferir("Fluxo: o card Investimentos soma o líquido (resgates − aportes) do que foi vinculado", perto(f1.inv - f0.inv, R - A), `${brl(f0.inv)} → ${brl(f1.inv)} · esperado +${brl(R - A)}`);
+conferir("Fluxo: o saldo fecha — saldo anterior + variação do caixa = saldo ao fim do período", perto(f1.anterior + f1.variacaoTotal, f1.saldoFim), `${brl(f1.anterior)} + ${brl(f1.variacaoTotal)} × ${brl(f1.saldoFim)}`);
 conferir("Fluxo: o SALDO não muda ao vincular (R1) — o dinheiro só trocou de linha", perto(f1.saldoFim, f0.saldoFim), `${brl(f0.saldoFim)} → ${brl(f1.saldoFim)}`);
-conferir("Fluxo: o resgate aparece na linha própria, como devolução de caixa", /Resgates de investimento/.test(f1.tabela));
-conferir("Fluxo: o aporte vinculado ganha o nome \"Aporte em investimento\" nas Saídas", /Aporte em investimento/.test(f1.tabela));
+const emBR = (n) => Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+conferir("Fluxo: o resgate aparece no bloco Investimentos, na linha Resgates", new RegExp("Resgates[^\\n]*\\+R\\$\\s*" + emBR(R).replace(/\./g, "\\.")).test(f1.tabela) || new RegExp("Resgates[^\\n]*" + emBR(R).replace(/\./g, "\\.")).test(f1.tabela));
+conferir("Fluxo: o aporte aparece no bloco Investimentos, na linha Aportes (com sinal de menos)", new RegExp("Aportes[^\\n]*-R\\$\\s*" + emBR(A).replace(/\./g, "\\.")).test(f1.tabela));
 
 const d1 = await lerDre();
 conferir("DRE: o resgate fica fora das receitas e aparece como \"Resgates (fora do DRE)\"", perto(d1.resgates - d0.resgates, R), `${brl(d0.resgates)} → ${brl(d1.resgates)}`);
@@ -89,8 +105,8 @@ conferir("DRE: o aporte vai para \"Aportes (não são despesa)\"", perto(d1.apor
 
 const h1 = await lerDash();
 conferir("Dash: o resgate sai das entradas do período", perto(h0.entradas - h1.entradas, R), `${brl(h0.entradas)} → ${brl(h1.entradas)}`);
-// O Dash tira o aporte do gasto (a Saúde financeira depende disso). O Fluxo mantém o aporte em Saídas: é a diferença conhecida entre os dois.
-conferir("Dash: o aporte não conta como gasto (o Fluxo mantém em Saídas)", perto(h0.saidas - h1.saidas, A), `${brl(h0.saidas)} → ${brl(h1.saidas)} · aporte ${brl(A)}`);
+conferir("Dash: o aporte sai das saídas (não é gasto)", perto(h0.saidas - h1.saidas, A), `${brl(h0.saidas)} → ${brl(h1.saidas)}`);
+conferir("Dash: o card Investimentos soma o líquido (resgates − aportes)", perto(h1.inv - h0.inv, R - A), `${brl(h0.inv)} → ${brl(h1.inv)}`);
 
 // ---------------------------------------------------------------------------
 // Registros: Entrou não inclui o resgate; o card "Resgates" mostra
@@ -109,6 +125,28 @@ conferir("Dash: o aporte não conta como gasto (o Fluxo mantém em Saídas)", pe
   await esperar(700);
   const sem = await cards(pagina, "rec-totais");
   conferir("Registros: sem o vínculo, o resgate volta para \"Entrou\"", perto(numero("entrou", card(sem, "Entrou")) - entrouCom, R) && card(sem, "Resgates") === undefined, `${card(sem, "Entrou")}`);
+}
+
+// ---------------------------------------------------------------------------
+// Registros: Saiu não inclui o aporte; o card "Aportes" mostra
+// ---------------------------------------------------------------------------
+{
+  await ir("recorrentes");
+  const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  const ordemDe = (t) => { const [m, , a] = t.toLowerCase().split(" "); return Number(a) * 12 + MESES.indexOf(m); };
+  const mesA = casos.aporte.dia.slice(0, 7);
+  const tituloA = new Date(Date.UTC(Number(mesA.slice(0, 4)), Number(mesA.slice(5, 7)) - 1, 1)).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const atual = () => pagina.$eval("#mes-titulo", (e) => e.textContent.toLowerCase());
+  for (let i = 0; i < 40 && (await atual()) !== tituloA.toLowerCase(); i++) { await pagina.click(ordemDe(await atual()) > ordemDe(tituloA) ? "#mes-anterior" : "#mes-proximo"); await esperar(150); }
+  const com = await cards(pagina, "rec-totais");
+  const aportesCom = card(com, "Aportes") === undefined ? 0 : numero("aportes", card(com, "Aportes"));
+  conferir("Registros: aparece o card \"Aportes\" com o valor do aporte vinculado", aportesCom >= A - 0.02, card(com, "Aportes"));
+  const saiuCom = numero("saiu", card(com, "Saiu"));
+  await pagina.evaluate(async (chave) => { const db = await window.claude.use("db"); await db.doc("vinculos_invest/" + chave).delete(); }, casos.aporte.chave);
+  await esperar(700);
+  const sem = await cards(pagina, "rec-totais");
+  const aportesSem = card(sem, "Aportes") === undefined ? 0 : numero("aportes", card(sem, "Aportes"));
+  conferir("Registros: sem o vínculo, o aporte volta para \"Saiu\" e sai do card Aportes", perto(numero("saiu", card(sem, "Saiu")) - saiuCom, A) && perto(aportesCom - aportesSem, A), `Saiu ${card(com, "Saiu")} → ${card(sem, "Saiu")} · Aportes ${aportesCom} → ${aportesSem}`);
 }
 
 conferir("Nenhum erro de JavaScript na página", erros.length === 0, erros.join(" | "));

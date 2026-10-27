@@ -3,6 +3,7 @@
 import { gerarPreview, abrir, conferir, fechar } from "./util.mjs";
 
 const VISTAS = [
+  ["chat", "Chat IA"],
   ["resumo", "Dash"],
   ["saude", "Saúde financeira"],
   ["fluxo", "Fluxo de caixa"],
@@ -14,6 +15,7 @@ const VISTAS = [
   ["comissoes", "Comissões"],
   ["investimentos", "Investimentos"],
   ["bens", "Bens"],
+  ["pontos", "Pontos"],
   ["contas", "Contas e bancos"],
   ["registros", "Extrato das contas"],
   ["qualidade", "Qualidade dos dados"],
@@ -23,9 +25,9 @@ const VISTAS = [
 // A ordem do menu lateral, grupo a grupo (pedido do usuário de 14/10): Comissões na Visão, Patrimônio depois da base do
 // fluxo (Investimentos e Bens), e "Consulta e validação" — contas, extrato e qualidade — antes de Ajustes.
 const MENU = [
-  ["Visão", ["resumo", "saude", "fluxo", "balanco", "analises", "comissoes"]],
+  ["Visão", ["chat", "resumo", "saude", "fluxo", "balanco", "analises", "comissoes"]],
   ["Base do fluxo de caixa", ["recorrentes", "dividas", "projetos"]],
-  ["Patrimônio", ["investimentos", "bens"]],
+  ["Patrimônio", ["investimentos", "bens", "pontos"]],
   ["Consulta e validação", ["contas", "registros", "qualidade"]],
   ["Ajustes", ["config"]],
 ];
@@ -33,6 +35,7 @@ const MENU = [
 // o layout de PRODUÇÃO: o DRE está fora da visualização (o teste dre-volta.mjs confere que ele volta quando se quer)
 const caminho = gerarPreview({ voltar: "" });
 const RESUMOS = {
+  chat: "Pergunte ao Claude ou ao ChatGPT sobre o dinheiro da casa",
   resumo: "A saúde financeira da casa num olhar",
   saude: "Os números que dizem se a família está",
   fluxo: "O que entrou, o que saiu e o que ainda vem",
@@ -46,6 +49,7 @@ const RESUMOS = {
   contas: "Cada banco conectado no Meu Pluggy",
   investimentos: "O que a casa tem aplicado",
   bens: "O que a família tem além do que está aplicado",
+  pontos: "O saldo de pontos e milhas de cada programa",
   config: "As categorias do app",
   qualidade: "O que veio duplicado ou inconsistente",
 };

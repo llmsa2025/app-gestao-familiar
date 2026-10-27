@@ -1,0 +1,4 @@
+node_modules/
+
+# O zip que se entrega ao usuário é gerado por `npm run empacotar`
+*.zip

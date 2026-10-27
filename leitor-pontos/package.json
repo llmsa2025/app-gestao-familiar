@@ -1,0 +1,17 @@
+{
+  "name": "leitor-pontos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Leitor de pontos dos programas de fidelidade. Projeto isolado: não depende do app nem de nenhum outro app do VPS.",
+  "type": "module",
+  "scripts": {
+    "viabilidade": "node viabilidade.mjs",
+    "test": "node testes/viabilidade.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

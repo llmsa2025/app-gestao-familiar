@@ -234,7 +234,7 @@ conferir("No celular: sem rolagem para o lado", await pagina.evaluate(() => docu
 const colunas = await pagina.evaluate(() => getComputedStyle(document.querySelector(".bal-quadro")).gridTemplateColumns.split(" ").length);
 conferir("No celular: ativo e passivo ficam um embaixo do outro", colunas === 1, String(colunas));
 const barra = await pagina.$$eval(".barra-item span", (ss) => ss.map((s) => s.textContent.trim()));
-conferir("A barra do celular: Dash · Fluxo · Balanço · Menu", barra.join("·") === "Dash·Fluxo·Balanço·Menu", barra.join("·"));
+conferir("A barra do celular: Chat IA · Dash · Fluxo · Balanço · Menu", barra.join("·") === "Chat IA·Dash·Fluxo·Balanço·Menu", barra.join("·"));
 await pagina.click('.barra-item[data-ir="balanco"]');
 await imprimir("balanco-celular");
 conferir("O botão da barra abre o Balanço", await pagina.isVisible('[data-vista="balanco"]'));

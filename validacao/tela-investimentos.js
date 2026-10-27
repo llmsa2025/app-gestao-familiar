@@ -118,8 +118,9 @@
     // Painel "Do extrato, para vincular": `aberto` null = decide sozinho (aberto quando há poucos lançamentos soltos)
     // `marcados`: chaves dos lançamentos marcados para vincular de uma vez; `destino`: o investimento escolhido para eles;
     // `escolhas`: o investimento que a pessoa escolheu em cada linha e ainda não vinculou (sobrevive ao redesenho);
-    // `ultimo`: o que o último "Vincular marcados" fez, dito ao lado do botão.
-    extrato: { aberto: null, modo: "parecem", busca: "", limite: 30, de: "", ate: "", marcados: new Set(), destino: "", escolhas: {}, confirmando: false, ultimo: "" },
+    // `ultimo`: o que o último "Vincular marcados" fez, dito ao lado do botão. `pessoa`: de quem são os lançamentos mostrados —
+    // null = a pessoa aberta (ninguém mexeu no filtro), "" = todas, ou o id de uma pessoa.
+    extrato: { aberto: null, pessoa: null, modo: "parecem", busca: "", limite: 30, de: "", ate: "", marcados: new Set(), destino: "", escolhas: {}, confirmando: false, ultimo: "" },
     recolhidos: lerRecolhidos(), // ids dos investimentos mostrados em UMA linha (aportou, resgatou, resultado)
     // Cotação do dólar (PTAX de venda, Banco Central): [{ d: "AAAA-MM-DD", v }] em ordem de data
     cotacao: { taxas: [], situacao: "ocioso", desde: "", tentouEm: 0 },
@@ -691,12 +692,23 @@
     return base + [...donos].map((d) => '<optgroup label="' + esc(nomeDaPessoa(d)) + '">' + lista.filter((a) => pessoaDe(a) === d).map(opcao).join("") + "</optgroup>").join("");
   }
 
+  // De quem são os lançamentos do painel (`quem`: "" = todas) e quais investimentos cada linha oferece (`escopo`). Sem escolha no
+  // filtro, vale a pessoa aberta (todas, se a aberta é "Sem pessoa") e só os investimentos dela. Mostrando outra pessoa, ou todas,
+  // o dinheiro de uma pode ter ido para o investimento de outra: aí todos os investimentos aparecem, agrupados por pessoa.
+  function quemDoExtrato() {
+    const aberta = estado.pessoaAberta;
+    const escolhida = estado.extrato.pessoa;
+    const quem = escolhida === null ? (aberta === SEM_PESSOA ? "" : aberta) : escolhida;
+    return { quem, escopo: escolhida === null || quem === aberta ? aberta : "" };
+  }
+
+  let opcoesDoFiltroPessoa = "";
   function desenharExtrato() {
     const caixa = $("inv-extrato");
-    // O painel é DA PESSOA: na lista de pessoas ele não aparece (os lançamentos são vinculados dentro de cada uma).
+    // O painel começa DA PESSOA aberta: na lista de pessoas ele não aparece. O filtro "Pessoa" amplia para as outras ou para todas.
     if (!estado.carteira.length || !estado.pessoaAberta) { caixa.hidden = true; return; }
     caixa.hidden = false;
-    const pessoa = estado.pessoaAberta;
+    const { quem: pessoa, escopo } = quemDoExtrato();
     const { de, ate } = estado.extrato;
     const periodo = { de, ate };
     const soltos = listarLancamentos({ modo: "parecem", busca: "", pessoa, ...periodo }).length;
@@ -712,6 +724,9 @@
     for (const b of $("inv-modo").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.invModo === estado.extrato.modo));
     // Com uma busca valendo, o modo não vale: o seletor some junto com o rótulo dele
     $("inv-modo").parentElement.hidden = !!estado.extrato.busca.trim();
+    const opcoesPessoa = '<option value="">Todas as pessoas</option>' + estado.pessoas.map((p) => '<option value="' + esc(String(p.id)) + '">' + esc(p.nome) + "</option>").join("");
+    if (opcoesPessoa !== opcoesDoFiltroPessoa) { opcoesDoFiltroPessoa = opcoesPessoa; $("inv-extrato-pessoa").innerHTML = opcoesPessoa; }
+    $("inv-extrato-pessoa").value = pessoa;
     if ($("inv-extrato-de").value !== de) $("inv-extrato-de").value = de;
     if ($("inv-extrato-ate").value !== ate) $("inv-extrato-ate").value = ate;
     $("inv-extrato-limpar-datas").hidden = !(de || ate);
@@ -719,14 +734,14 @@
     const alvo = $("inv-sugestoes");
     const lista = listarLancamentos({ modo: estado.extrato.modo, busca: estado.extrato.busca, pessoa, ...periodo });
     alvo._lista = lista; // o clique lê daqui, sem refazer a conta
-    const vivos = estado.carteira.filter((a) => !a.encerrado && (!pessoa || pessoaDe(a) === pessoa));
+    const vivos = estado.carteira.filter((a) => !a.encerrado && (!escopo || pessoaDe(a) === escopo));
     // Marcado que saiu da lista (foi vinculado, ou o filtro mudou) deixa de estar marcado: nunca se vincula o que não se vê.
     const naLista = new Set(lista.map((i) => i.chave));
     for (const k of [...estado.extrato.marcados]) if (!naLista.has(k)) estado.extrato.marcados.delete(k);
     // O investimento do lote: o que a pessoa escolheu; sendo um só da pessoa, já vem escolhido
     if (estado.extrato.destino && !vivos.some((a) => a.id === estado.extrato.destino)) estado.extrato.destino = "";
     if (!estado.extrato.destino && vivos.length === 1) estado.extrato.destino = vivos[0].id;
-    $("inv-lote-destino").innerHTML = opcoesDeInvestimento(estado.extrato.destino, pessoa);
+    $("inv-lote-destino").innerHTML = opcoesDeInvestimento(estado.extrato.destino, escopo);
     $("inv-lote-destino").value = estado.extrato.destino;
     atualizarLote();
     if (!lista.length) {
@@ -751,7 +766,7 @@
         return "<tr><td><label class=\"marcar\"><input type=\"checkbox\" data-inv-marcar=\"" + n + "\"" + (estado.extrato.marcados.has(i.chave) ? " checked" : "") + " aria-label=\"Marcar " + esc(i.rotulo) + " de " + dataBR(i.data) + "\"> " + dataBR(i.data) + "</label></td>" +
           "<td><strong>" + esc(i.rotulo) + '</strong><span class="meta">' + esc(i.texto) + " · " + esc(i.conta) + "</span></td>" +
           '<td class="num ' + (i.valor < 0 ? "neg" : "pos") + '">' + brl.format(Math.abs(i.valor)) + '<span class="meta">' + (i.valor < 0 ? "aporte" : "resgate") + "</span></td>" +
-          '<td><select class="campo" data-inv-sug="' + n + '" aria-label="Investimento de ' + esc(i.rotulo) + " em " + dataBR(i.data) + '">' + opcoesDeInvestimento(sugerido, pessoa) + "</select></td>" +
+          '<td><select class="campo" data-inv-sug="' + n + '" aria-label="Investimento de ' + esc(i.rotulo) + " em " + dataBR(i.data) + '">' + opcoesDeInvestimento(sugerido, escopo) + "</select></td>" +
           '<td class="acao"><div class="acoes"><button type="button" class="botao pequeno" data-inv-vincular="' + n + '">Vincular</button>' +
             (lote ? '<button type="button" class="botao pequeno fantasma" data-inv-vincular-todos="' + n + '" title="Vincula de uma vez os ' + lote + ' lançamentos deste estabelecimento ao investimento escolhido">Os ' + lote + " iguais</button>" : "") +
           "</div></td></tr>";
@@ -992,7 +1007,11 @@
       fecharInvestimento();
       aviso("");
       // Dentro de uma pessoa, se o investimento foi para outra, a tela acompanha: senão ele "sumiria" do que se está olhando
-      if (estado.pessoaAberta) estado.pessoaAberta = novo.pessoaId && estado.pessoas.some((p) => String(p.id) === String(novo.pessoaId)) ? String(novo.pessoaId) : SEM_PESSOA;
+      if (estado.pessoaAberta) {
+        const antes = estado.pessoaAberta;
+        estado.pessoaAberta = novo.pessoaId && estado.pessoas.some((p) => String(p.id) === String(novo.pessoaId)) ? String(novo.pessoaId) : SEM_PESSOA;
+        if (estado.pessoaAberta !== antes) estado.extrato.pessoa = null;
+      }
       desenhar();
     } catch (err) { $("inv-f-erro").textContent = mensagemDoErro(err); }
   });
@@ -1189,7 +1208,7 @@
     estado.pessoaAberta = id;
     estado.filtroTipo = "";
     estado.extrato.limite = 30;
-    estado.extrato.de = ""; estado.extrato.ate = "";
+    estado.extrato.de = ""; estado.extrato.ate = ""; estado.extrato.pessoa = null;
     desenhar();
     window.scrollTo(0, 0);
   }
@@ -1260,6 +1279,15 @@
     if (!b) return;
     estado.extrato.modo = b.dataset.invModo;
     estado.extrato.limite = 30;
+    desenharExtrato();
+  });
+  // De quem são os lançamentos: a pessoa aberta (padrão), a outra ou todas. Os marcados, o destino do lote e a escolha de
+  // cada linha que deixam de caber são descartados no próprio desenho.
+  $("inv-extrato-pessoa").addEventListener("change", () => {
+    estado.extrato.pessoa = $("inv-extrato-pessoa").value;
+    estado.extrato.limite = 30;
+    estado.extrato.confirmando = false;
+    estado.extrato.ultimo = "";
     desenharExtrato();
   });
   // O período (início e fim) vale para qualquer modo e para a busca

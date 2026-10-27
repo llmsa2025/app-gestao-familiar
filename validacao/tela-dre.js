@@ -99,6 +99,7 @@
   // Devolve o lançamento pronto para somar, ou null quando ele não é do DRE.
   function doDre(l) {
     if (l.x === 1) return null; // possível cópia não entra em soma nenhuma
+    if (l.st === 1) return null; // agendado no banco, ainda não saiu: vale o que foi pago (igual ao Fluxo)
     const conta = contaPorIndice[l.c];
     if (!conta || conta.cartao) return null; // cartão entra pelo total da fatura
     if (!window.PESSOAS.ehDaPessoa(window.PESSOAS.dono(conta), estado.pessoa)) return null;

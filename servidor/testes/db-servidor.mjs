@@ -453,6 +453,29 @@ console.log("Cliente de dados (db-servidor.js)\n");
   ok("Gravar categoria: as três coleções são conferidas e só a gravada redesenha as telas");
 }
 
+// 13. Pontos: gravar um saldo muda a conta (situação, última leitura, saldo mais recente); as duas coleções são buscadas de novo juntas
+{
+  const contaAntes = [{ id: "1", dados: { id: "1", status: "nunca_lido", pontos: null } }];
+  const contaDepois = [{ id: "1", dados: { id: "1", status: "ok", pontos: 6358 } }];
+  let gravou = false;
+  const n = navegador({
+    prefetch: Promise.resolve({ colecoes: { pontos_contas: { documentos: contaAntes }, pontos_saldos: { documentos: [] } }, erros: {} }),
+    servidor: (url, o, r) => {
+      if (o.method === "PUT") { gravou = true; return r({ ok: true, id: "9" }); }
+      return r({ documentos: url.includes("pontos_contas") ? (gravou ? contaDepois : contaAntes) : gravou ? [{ id: "9", dados: { id: "9", contaId: "1", pontos: 6358 } }] : [] });
+    },
+  });
+  const db = await n.db();
+  const vistas = [];
+  db.collection("pontos_contas").onSnapshot((s) => vistas.push(s.docs.map((d) => d.data().status)[0]));
+  db.collection("pontos_saldos").onSnapshot(() => {});
+  await esperar();
+  await db.doc("pontos_saldos/novo").set({ contaId: "1", pontos: 6358 });
+  assert.equal(vistas.at(-1), "ok", "a conta, que não foi gravada, tem de chegar já atualizada pelo saldo");
+  assert.equal(n.chamadas.filter((c) => c.metodo === "GET" && c.url.includes("pontos_contas")).length >= 1, true, "a conta é buscada de novo depois de gravar o saldo");
+  ok("Gravar um saldo de pontos: a conta (situação e saldo mais recente) é buscada de novo junto, sem esperar a rodada de 60 s");
+}
+
 // 10. A página aponta para a VERSÃO do cliente e injeta a busca antecipada (cache do navegador e do service worker não seguram o cliente velho)
 {
   process.env.POSTGRES_PASSWORD ||= "x"; process.env.CHAVE_MESTRA ||= Buffer.alloc(32, 1).toString("base64"); // o módulo exige as variáveis; aqui não conecta em banco
@@ -479,6 +502,8 @@ console.log("Cliente de dados (db-servidor.js)\n");
   const sw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "web", "sw.js"), "utf8");
   assert.ok(!/const CACHE = "gf-v1"/.test(sw), "o nome do cache do service worker tem de mudar quando o cliente muda");
   ok("O service worker mudou o nome do cache (o aparelho descarta o cliente antigo)");
+  assert.ok(/url\.pathname\.endsWith\("\.zip"\)/.test(sw), "nenhum zip (a extensão, o material da loja) sai do cache: a versão velha seria entregue para sempre");
+  ok("O service worker nunca guarda um zip (a extensão e o material da loja saem sempre da rede)");
 }
 
 console.log(`\n${passou} conferências passaram.`);
